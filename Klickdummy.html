@@ -1,0 +1,3292 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#b91c1c" />
+<title>TSV Untergruppenbach · Vereins-App (Klickdummy)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --tsv-red: #b91c1c;
+    --tsv-red-dark: #991b1b;
+    --tsv-red-soft: #fee2e2;
+    --tsv-ink: #111827;
+    --tsv-ink-soft: #374151;
+  }
+  html, body { background: #0f172a; }
+  body { font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* Phone frame on desktop */
+  .phone {
+    width: 100%;
+    max-width: 420px;
+    height: 100vh;
+    max-height: 920px;
+    background: #f3f4f6;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+  }
+  @media (min-width: 520px) {
+    .phone { border-radius: 44px; height: 900px; border: 10px solid #0f172a; }
+    .phone::before {
+      content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 28px; background: #0f172a; border-radius: 0 0 16px 16px; z-index: 50;
+    }
+  }
+  .screen { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .screen.active { display: flex; }
+  .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  #tabbar { flex-shrink: 0; }
+  .fade { animation: fade .2s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* Branding helpers */
+  .brand-bg { background: var(--tsv-red); }
+  .brand-bg-dark { background: var(--tsv-red-dark); }
+  .brand-text { color: var(--tsv-red); }
+  .brand-border { border-color: var(--tsv-red); }
+  .brand-soft { background: var(--tsv-red-soft); color: var(--tsv-red-dark); }
+  .primary { background: var(--tsv-red); color: #fff; }
+  .primary:hover { background: var(--tsv-red-dark); }
+  .section-label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: #6b7280; }
+
+  .tab-btn.active { color: var(--tsv-red); }
+  .tab-btn.active svg { stroke: var(--tsv-red); }
+
+  input, select, textarea { font: inherit; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--tsv-red); outline-offset: -2px; }
+
+  .progress-bar { background: var(--tsv-red); transition: width .5s ease; }
+  .chip-role { transition: all .15s; }
+  .chip-role.on { background: var(--tsv-red); color: white; }
+  .chip-role.off { background: #e2e8f0; color: #475569; }
+
+  /* TSV-Logo (SVG aus logo.svg) */
+  .tsv-logo { width: 40px; height: 44px; display: inline-block; }
+  .tsv-logo.sm { width: 32px; height: 36px; }
+  .tsv-logo.lg { width: 110px; height: 121px; }
+  .tsv-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+  /* Heller Header (weiß + roter Akzentstrich) */
+  .app-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+  }
+  .app-header::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: var(--tsv-red);
+  }
+
+  /* Banner hero (nur noch für ausgewählte Detail-Screens) */
+  .hero-banner {
+    background: linear-gradient(135deg, var(--tsv-red) 0%, var(--tsv-red-dark) 100%);
+    color: white;
+  }
+
+  /* Scrollbar styling */
+  .scroll::-webkit-scrollbar { width: 6px; }
+  .scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+
+  /* Platzbuchung Grid */
+  .court-grid {
+    display: grid;
+    grid-template-columns: 52px repeat(6, 1fr);
+    gap: 2px;
+    background: #e5e7eb;
+  }
+  .court-cell { background: #fff; min-height: 32px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 600; }
+  .court-cell:hover { background: #fef2f2; }
+  /* Private Buchung (anderer Mitglieder) */
+  .court-cell.booked { background: #fecaca; color: #7f1d1d; cursor: not-allowed; }
+  .court-cell.booked:hover { background: #fecaca; }
+  /* Meine eigene Buchung */
+  .court-cell.own { background: var(--tsv-red); color: #fff; }
+  /* Training – hellgrau, dezent gestreift */
+  .court-cell.training { background: #e5e7eb; color: #374151; cursor: not-allowed;
+    background-image: repeating-linear-gradient(45deg, rgba(55,65,81,0.08) 0 4px, transparent 4px 8px); }
+  .court-cell.training:hover { background-color: #e5e7eb; }
+  /* Mannschaftsspiel – ebenfalls hellgrau, dichter & in Gegenrichtung gestreift */
+  .court-cell.hobby { background: #dbeafe; color: #1e3a8a; cursor: not-allowed;
+    background-image: repeating-linear-gradient(45deg, rgba(30,58,138,0.15) 0 2px, transparent 2px 4px);
+  }
+  .court-cell.hobby:hover { background-color: #dbeafe; }
+  .court-cell.match { background: #e5e7eb; color: #374151; cursor: not-allowed;
+    background-image: repeating-linear-gradient(135deg, rgba(55,65,81,0.18) 0 3px, transparent 3px 7px); }
+  .court-cell.match:hover { background-color: #e5e7eb; }
+  .court-cell.time { background: #f9fafb; color: #6b7280; font-weight: 600; cursor: default; }
+  .court-cell.time:hover { background: #f9fafb; }
+  .court-head { background: var(--tsv-ink); color: white; font-weight: 700; font-size: 11px; padding: 6px 0; text-align: center; }
+
+  /* Toast */
+  #toast { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: rgba(17,24,39,0.95); color: white; padding: 10px 16px; border-radius: 999px;
+    font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60;
+    white-space: nowrap; max-width: 92%;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ===== Rangliste / Pyramide ===== */
+  .pyramid { padding: 40px 4px 20px; }
+  .pyramid.compact { padding: 16px 4px 20px; }
+  .pyramid-row {
+    display: flex; justify-content: center; gap: 6px; margin-bottom: 6px;
+  }
+  .player-tile {
+    width: 56px; height: 66px; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #ffffff; border: 1px solid #e5e7eb;
+    position: relative; cursor: default; transition: all .15s;
+    padding: 4px 2px;
+  }
+  .player-tile .avatar {
+    width: 28px; height: 28px; border-radius: 999px;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #991b1b; font-weight: 800; font-size: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 2px;
+  }
+  .player-tile .pos-label {
+    font-size: 9px; font-weight: 800; color: #6b7280; letter-spacing: 0.04em;
+  }
+  .player-tile .name-line {
+    font-size: 9px; font-weight: 600; color: #111827;
+    max-width: 52px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; line-height: 1;
+  }
+  /* Kompakt-Modus für große Pyramiden (viele Reihen) */
+  .pyramid.compact .pyramid-row { gap: 3px; margin-bottom: 3px; }
+  .pyramid.compact .player-tile {
+    width: 34px; height: 44px; border-radius: 8px; padding: 2px 0;
+  }
+  .pyramid.compact .player-tile .avatar {
+    width: 22px; height: 22px; font-size: 8px; margin-bottom: 1px;
+  }
+  .pyramid.compact .player-tile .pos-label { font-size: 8px; }
+  .pyramid.compact .player-tile .name-line { display: none; }
+  .pyramid.compact .player-tile.champion {
+    width: 46px; height: 54px;
+  }
+  .pyramid.compact .player-tile.champion .avatar { width: 26px; height: 26px; font-size: 9px; }
+  .pyramid.compact .player-tile .ring-new {
+    width: 13px; height: 13px; font-size: 8px;
+  }
+  .pyramid.compact .player-tile .crown { font-size: 11px; top: -8px; }
+  .player-tile.own {
+    background: var(--tsv-red-soft);
+    border-color: var(--tsv-red);
+  }
+  .player-tile.own .avatar {
+    background: var(--tsv-red); color: #fff;
+  }
+  .player-tile.targetable {
+    border: 2px dashed var(--tsv-red);
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(185,28,28,0.12);
+  }
+  .player-tile.targetable:hover {
+    background: #fff1f2; transform: translateY(-1px);
+  }
+  .player-tile.challenged {
+    border-color: #f59e0b; background: #fffbeb;
+  }
+  .player-tile.champion {
+    width: 72px; height: 78px;
+    background: linear-gradient(135deg, #fde68a, #fcd34d);
+    border-color: #f59e0b;
+  }
+  .player-tile.champion .avatar { width: 32px; height: 32px; font-size: 11px; }
+  .player-tile .crown {
+    position: absolute; top: -10px; font-size: 14px;
+  }
+  .player-tile .ring-new {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--tsv-red); color: #fff;
+    border-radius: 999px; width: 16px; height: 16px;
+    font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff;
+  }
+
+  /* Kategorie- und Sub-Tabs */
+  .cat-pill { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; transition: all .15s; }
+  .cat-pill.on { background: var(--tsv-red); color: #fff; }
+  .cat-pill.off { background: #fff; color: #475569; border: 1px solid #e2e8f0; }
+
+  .sub-tab { flex: 1; padding: 8px 0; font-size: 12px; font-weight: 700; color: #64748b; text-align: center; }
+  .sub-tab.on { color: var(--tsv-red); border-bottom: 2px solid var(--tsv-red); }
+
+  /* Tab-Badge (Forderung ausstehend) */
+  .tab-badge {
+    position: absolute; top: 4px; right: 24%;
+    min-width: 14px; height: 14px; padding: 0 3px;
+    border-radius: 999px; background: var(--tsv-red); color: #fff;
+    font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-0 sm:p-6">
+
+<!-- Desktop helper: role switcher -->
+<div class="fixed top-3 right-3 z-[100] bg-white/95 backdrop-blur rounded-full shadow-lg px-2 py-1 flex items-center gap-1 text-xs">
+  <span class="px-2 text-slate-500">Rolle:</span>
+  <button id="roleMember" class="chip-role on px-3 py-1 rounded-full font-medium">Mitglied</button>
+  <button id="roleAdmin" class="chip-role off px-3 py-1 rounded-full font-medium">Admin</button>
+</div>
+
+<!-- Desktop helper: "This is a mockup" banner -->
+<div class="hidden sm:block fixed top-3 left-3 z-[100] bg-amber-100 text-amber-900 text-xs rounded-full px-3 py-1 font-medium shadow">
+  Klickdummy · TSV Untergruppenbach · keine echten Daten
+</div>
+
+<div class="phone" id="phone">
+
+  <!-- ============ LOGIN ============ -->
+  <section id="s-login" class="screen active">
+    <div class="flex-1 flex flex-col items-center justify-center px-8 text-center bg-white">
+      <div class="tsv-logo lg mb-5"><img src="logo.svg" alt="TSV Untergruppenbach" /></div>
+      <h1 class="text-lg font-black text-slate-900 tracking-tight">TSV UNTERGRUPPENBACH</h1>
+      <p class="text-slate-500 mt-1 uppercase tracking-widest text-xs">Abteilung Tennis</p>
+      <div class="w-10 h-0.5 brand-bg mt-4 mb-5"></div>
+      <div class="w-full max-w-xs mt-8 space-y-3">
+        <input type="email" placeholder="E-Mail" value="marius@tsv-untergruppenbach.de" class="w-full border border-slate-200 rounded-lg px-4 py-3 bg-white" />
+        <input type="password" placeholder="Passwort" value="••••••••" class="w-full border border-slate-200 rounded-lg px-4 py-3 bg-white" />
+        <button onclick="go('home')" class="w-full primary rounded-lg py-3 font-semibold">Anmelden</button>
+        <button class="text-sm text-slate-500 hover:text-slate-900">Passwort vergessen?</button>
+      </div>
+      <p class="text-xs text-slate-400 mt-8 max-w-xs">Zugänge werden ausschließlich vom Vorstand für eingetragene Mitglieder angelegt.</p>
+    </div>
+  </section>
+
+  <!-- ============ HOME ============ -->
+  <section id="s-home" class="screen">
+    <header class="app-header">
+      <div class="px-5 pt-4 pb-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div onclick="go('home')" class="tsv-logo cursor-pointer"><img src="logo.svg" alt="TSV Untergruppenbach" /></div>
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">TSV Untergruppenbach</div>
+            <div class="text-sm font-bold text-slate-900">Abteilung Tennis</div>
+          </div>
+        </div>
+        <button onclick="go('profile')" class="w-9 h-9 rounded-full brand-bg text-white flex items-center justify-center font-semibold text-sm shadow-sm hover:opacity-90">MD</button>
+      </div>
+    </header>
+
+    <div class="scroll fade">
+      <!-- Begrüßung (schlicht, weiß/grau) -->
+      <div class="px-5 pt-5 pb-1">
+        <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500 font-bold">Hallo</div>
+        <div class="text-2xl font-black text-slate-900 mt-1">Marius Deutsch 👋</div>
+        <div class="text-sm text-slate-500 mt-0.5">Willkommen in deiner Vereins-App</div>
+      </div>
+
+      <!-- ============ ADMIN DASHBOARD (auf Home verankert) ============ -->
+      <div class="adminOnly px-5 pt-5">
+        <div class="section-label mb-3">Admin-Bereich</div>
+        <!-- KPI Zeile -->
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Mitglieder</div>
+            <div class="text-xl font-black text-slate-900 mt-1">98</div>
+          </div>
+          <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Ø Stunden</div>
+            <div class="text-xl font-black text-slate-900 mt-1">6,4<span class="text-xs text-slate-500">/10</span></div>
+          </div>
+          <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Offen</div>
+            <div class="text-xl font-black brand-text mt-1">34</div>
+          </div>
+        </div>
+
+        <!-- Admin-Aktionen: 2er-Grid mit Icons -->
+        <div class="grid grid-cols-2 gap-2 mb-5">
+          <button onclick="go('admin-hours')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-left hover:border-red-300">
+            <div class="w-8 h-8 brand-soft rounded-lg flex items-center justify-center text-lg mb-2">⏱</div>
+            <div class="text-sm font-bold text-slate-900">Stunden-Übersicht</div>
+            <div class="text-xs text-slate-500">Alle Mitglieder</div>
+          </button>
+          <button onclick="go('admin-assign-hours')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-left hover:border-red-300">
+            <div class="w-8 h-8 brand-soft rounded-lg flex items-center justify-center text-lg mb-2">＋</div>
+            <div class="text-sm font-bold text-slate-900">Stunden zuweisen</div>
+            <div class="text-xs text-slate-500">Schnelleingabe</div>
+          </button>
+          <button onclick="go('admin-create-event')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-left hover:border-red-300">
+            <div class="w-8 h-8 brand-soft rounded-lg flex items-center justify-center text-lg mb-2">📅</div>
+            <div class="text-sm font-bold text-slate-900">Arbeitseinsatz</div>
+            <div class="text-xs text-slate-500">Event anlegen</div>
+          </button>
+          <button onclick="go('admin-news')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-left hover:border-red-300">
+            <div class="w-8 h-8 brand-soft rounded-lg flex items-center justify-center text-lg mb-2">📰</div>
+            <div class="text-sm font-bold text-slate-900">News schreiben</div>
+            <div class="text-xs text-slate-500">An alle Mitglieder</div>
+          </button>
+          <button onclick="go('admin-create-member')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-left hover:border-red-300">
+            <div class="w-8 h-8 brand-soft rounded-lg flex items-center justify-center text-lg mb-2">👤</div>
+            <div class="text-sm font-bold text-slate-900">Mitglied anlegen</div>
+            <div class="text-xs text-slate-500">Neuer Zugang</div>
+          </button>
+          <button onclick="go('teams')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-left hover:border-red-300">
+            <div class="w-8 h-8 brand-soft rounded-lg flex items-center justify-center text-lg mb-2">🏆</div>
+            <div class="text-sm font-bold text-slate-900">Mannschaften</div>
+            <div class="text-xs text-slate-500">Verwalten & zuweisen</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ NEWS ============ -->
+      <div class="px-5 pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">Aktuelles</div>
+          <span class="text-xs text-slate-400">3 neu</span>
+        </div>
+        <div id="newsList" class="space-y-3">
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <div class="text-[10px] uppercase tracking-wider brand-text font-bold">Saisoneröffnung</div>
+            <div class="font-bold text-slate-900 mt-1">Saisonauftakt am 1. Mai</div>
+            <div class="text-sm text-slate-600 mt-1">Traditioneller Saisonstart mit Anspielen, Weißwurst-Frühstück und Doppel-Turnier.</div>
+            <div class="text-xs text-slate-400 mt-2">Vor 2 Tagen · Vorstand</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <div class="text-[10px] uppercase tracking-wider brand-text font-bold">Arbeitseinsatz</div>
+            <div class="font-bold text-slate-900 mt-1">Plätze herrichten – 26. April</div>
+            <div class="text-sm text-slate-600 mt-1">Walzen, Linien ziehen, Zäune säubern. Für Helfer gibt es 4 Stunden.</div>
+            <div class="text-xs text-slate-400 mt-2">Vor 5 Tagen</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+            <div class="text-[10px] uppercase tracking-wider brand-text font-bold">Mannschaftsspiel</div>
+            <div class="font-bold text-slate-900 mt-1">Herren 40 – Heimspiel am 18. April</div>
+            <div class="text-sm text-slate-600 mt-1">Erstes Punktspiel der Saison. Anfahrt & Aufstellung in der Mannschafts-Übersicht.</div>
+            <div class="text-xs text-slate-400 mt-2">Vor 1 Woche · Mannschaftsführer</div>
+          </div>
+        </div>
+        <!-- Ältere News (initial versteckt) -->
+        <div id="newsListMore" class="space-y-3 hidden mt-3">
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 opacity-90">
+            <div class="text-[10px] uppercase tracking-wider brand-text font-bold">Jugend</div>
+            <div class="font-bold text-slate-900 mt-1">Jugendtraining startet wieder</div>
+            <div class="text-sm text-slate-600 mt-1">Ab Mittwoch 9. April von 16–18 Uhr. Anmeldung über den Jugendwart.</div>
+            <div class="text-xs text-slate-400 mt-2">Vor 2 Wochen</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 opacity-90">
+            <div class="text-[10px] uppercase tracking-wider brand-text font-bold">Anlage</div>
+            <div class="font-bold text-slate-900 mt-1">Neue Bewässerung installiert</div>
+            <div class="text-sm text-slate-600 mt-1">Danke an alle Helfer beim Anschluss des neuen Systems.</div>
+            <div class="text-xs text-slate-400 mt-2">Vor 3 Wochen</div>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 opacity-90">
+            <div class="text-[10px] uppercase tracking-wider brand-text font-bold">Vereinsleben</div>
+            <div class="font-bold text-slate-900 mt-1">Rückblick Hallenrunde 2025/26</div>
+            <div class="text-sm text-slate-600 mt-1">Drei Mannschaften am Start, starker Auftritt der Damen 40.</div>
+            <div class="text-xs text-slate-400 mt-2">Vor 1 Monat · Vorstand</div>
+          </div>
+        </div>
+        <button id="loadMoreNewsBtn" onclick="toggleMoreNews()" class="w-full mt-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">Mehr laden</button>
+      </div>
+
+      <!-- ============ NÄCHSTE EVENTS ============ -->
+      <div class="px-5 pt-6">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">Nächste Termine</div>
+          <button onclick="go('events')" class="text-xs brand-text font-semibold">Alle →</button>
+        </div>
+        <div class="space-y-2">
+          <div onclick="go('event-detail')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 flex items-center gap-3 cursor-pointer">
+            <div class="w-12 h-12 brand-soft rounded-lg flex flex-col items-center justify-center">
+              <div class="text-[10px] font-bold uppercase">Apr</div>
+              <div class="text-lg font-black leading-none">26</div>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold text-slate-900 text-sm">Plätze herrichten</div>
+              <div class="text-xs text-slate-500">09:00 · Tennisanlage · 4 h</div>
+            </div>
+            <div class="text-xs pill brand-soft rounded-full px-2 py-1 font-semibold">Frei</div>
+          </div>
+          <div onclick="go('event-detail')" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 flex items-center gap-3 cursor-pointer">
+            <div class="w-12 h-12 brand-soft rounded-lg flex flex-col items-center justify-center">
+              <div class="text-[10px] font-bold uppercase">Mai</div>
+              <div class="text-lg font-black leading-none">01</div>
+            </div>
+            <div class="flex-1">
+              <div class="font-semibold text-slate-900 text-sm">Saisonauftakt</div>
+              <div class="text-xs text-slate-500">10:00 · Vereinsheim · 2 h</div>
+            </div>
+            <div class="text-xs bg-green-100 text-green-800 rounded-full px-2 py-1 font-semibold">Angemeldet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ EIGENE STUNDEN (Mitglied) ============ -->
+      <div class="memberOnly px-5 pt-6 pb-24">
+        <div class="section-label mb-3">Meine Arbeitsstunden</div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-2xl font-black text-slate-900">4,5 <span class="text-sm text-slate-500 font-medium">von 10 h</span></div>
+              <div class="text-xs text-slate-500 mt-0.5">Saison 2026</div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-slate-500">Noch</div>
+              <div class="text-lg font-bold brand-text">5,5 h</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div class="progress-bar h-2 rounded-full" style="width: 45%"></div>
+          </div>
+          <button onclick="go('hours')" class="text-xs brand-text font-semibold mt-3">Details & Historie →</button>
+        </div>
+      </div>
+      <!-- Admin sieht kein Stunden-Konto unten, Padding für Tabbar -->
+      <div class="adminOnly pb-24"></div>
+    </div>
+  </section>
+
+  <!-- ============ PLATZBUCHUNG ============ -->
+  <section id="s-booking" class="screen">
+    <header class="app-header px-5 pt-4 pb-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div onclick="go('home')" class="tsv-logo sm cursor-pointer"><img src="logo.svg" alt="TSV" /></div>
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">TSV Untergruppenbach</div>
+            <div class="text-base font-bold text-slate-900">Platzbuchung</div>
+          </div>
+        </div>
+        <button onclick="go('profile')" class="w-9 h-9 rounded-full brand-bg text-white flex items-center justify-center font-semibold text-sm shadow-sm hover:opacity-90">MD</button>
+      </div>
+    </header>
+    <div class="scroll fade pb-24">
+      <!-- Datumsleiste -->
+      <div class="bg-white px-5 py-3 border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
+        <button class="text-slate-400 text-lg">‹</button>
+        <div class="text-center">
+          <div class="text-sm font-bold text-slate-900">Dienstag</div>
+          <div class="text-xs text-slate-500">21. April 2026</div>
+        </div>
+        <button class="text-slate-400 text-lg">›</button>
+      </div>
+      <!-- Quick-Chips für Tage -->
+      <div class="bg-white px-3 pb-3 flex gap-2 overflow-x-auto border-b border-slate-100">
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">Mo 20</button>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full brand-bg text-xs font-semibold text-white">Di 21</button>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">Mi 22</button>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">Do 23</button>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">Fr 24</button>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">Sa 25</button>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">So 26</button>
+      </div>
+
+      <!-- Platz-Matrix -->
+      <div class="px-3 pt-3">
+        <div class="court-grid rounded-lg overflow-hidden border border-slate-200">
+          <div class="court-head">Uhr</div>
+          <div class="court-head">1</div>
+          <div class="court-head">2</div>
+          <div class="court-head">3</div>
+          <div class="court-head">4</div>
+          <div class="court-head">5</div>
+          <div class="court-head">6</div>
+          <!-- wird per JS gefüllt -->
+        </div>
+        <div id="courtGridBody" class="court-grid rounded-b-lg overflow-hidden border border-slate-200 border-t-0"></div>
+
+        <!-- Legende -->
+        <div class="grid grid-cols-2 gap-y-1.5 gap-x-3 mt-3 text-xs text-slate-700">
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-white border border-slate-300 rounded"></span> Frei</div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 brand-bg rounded"></span> Meine Buchung</div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 bg-red-200 rounded"></span> Privat belegt</div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#e5e7eb; background-image: repeating-linear-gradient(45deg, rgba(55,65,81,0.15) 0 2px, transparent 2px 4px);"></span> Training</div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded" style="background:#dbeafe; background-image: repeating-linear-gradient(45deg, rgba(30,58,138,0.15) 0 2px, transparent 2px 4px);"></span> Hobby-Training</div>
+          <div class="flex items-center gap-1.5 col-span-2"><span class="w-3 h-3 rounded" style="background:#e5e7eb; background-image: repeating-linear-gradient(135deg, rgba(55,65,81,0.3) 0 2px, transparent 2px 4px);"></span> Mannschaftsspiel</div>
+        </div>
+
+        <!-- Admin-Aktionsleiste: Training / Mannschaftsspiel eintragen -->
+        <div class="adminOnly mt-4 bg-white rounded-xl p-3 border border-red-200 shadow-sm">
+          <div class="section-label mb-2">Admin · Platz blockieren</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="openAdminBlock('training')" class="bg-slate-100 border border-slate-300 text-slate-800 rounded-lg py-2.5 text-sm font-bold hover:bg-slate-200">
+              🎾 Training eintragen
+            </button>
+            <button onclick="openAdminBlock('match')" class="bg-slate-800 text-white rounded-lg py-2.5 text-sm font-bold hover:bg-slate-900">
+              🏆 Mannschaftsspiel
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2">Nur Admins können Trainings und Verbandsspieltage setzen. Die Zeiten werden für Mitglieder zur privaten Buchung gesperrt.</p>
+        </div>
+
+        <!-- Info -->
+        <div class="mt-4 bg-slate-50 rounded-xl p-3 text-xs text-slate-600 border border-slate-100">
+          <div class="font-semibold text-slate-900 mb-1">Buchungsregeln</div>
+          <span class="memberOnly">Max. 1 aktive private Buchung pro Mitglied. Stornierung bis 1 Stunde vor Beginn. Trainings und Mannschaftsspiele werden vom Vorstand geblockt.</span>
+          <span class="adminOnly">Als Admin siehst du zusätzlich Buttons zum Eintragen von Trainings und Mannschaftsspielen. Diese sperren die Plätze für private Buchungen.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN: PLATZ BLOCKIEREN (Training / Spiel) ============ -->
+  <section id="s-admin-block" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('booking')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900" id="adminBlockTitle">Training eintragen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-3 fade pb-24">
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <div>
+          <label class="section-label">Typ</label>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <button id="blockTypeTraining" onclick="setBlockType('training')" class="border-2 border-slate-400 bg-slate-100 text-slate-800 rounded-lg py-2 text-sm font-bold">🎾 Training</button>
+            <button id="blockTypeMatch" onclick="setBlockType('match')" class="border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold">🏆 Mannschaftsspiel</button>
+          </div>
+        </div>
+        <div>
+          <label class="section-label">Mannschaft</label>
+          <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+            <option>Herren I</option>
+            <option>Herren II</option>
+            <option>Damen I</option>
+            <option>Jugend U18</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="section-label">Datum</label>
+            <input type="date" value="2026-04-22" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+          <div>
+            <label class="section-label">Wiederholung</label>
+            <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+              <option>Einmalig</option>
+              <option>Wöchentlich (Saison)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="section-label">Von</label>
+            <input type="time" value="18:00" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+          <div>
+            <label class="section-label">Bis</label>
+            <input type="time" value="20:00" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+        </div>
+        <div>
+          <label class="section-label">Plätze</label>
+          <div class="grid grid-cols-6 gap-1.5 mt-2">
+            <button class="border-2 brand-border brand-text rounded-lg py-2 text-sm font-bold">1</button>
+            <button class="border-2 brand-border brand-text rounded-lg py-2 text-sm font-bold">2</button>
+            <button class="border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold">3</button>
+            <button class="border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold">4</button>
+            <button class="border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold">5</button>
+            <button class="border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold">6</button>
+          </div>
+        </div>
+      </div>
+      <button onclick="go('booking'); showToast('Platz 1+2 geblockt ✓')" class="w-full primary rounded-xl py-3 font-semibold">Plätze blocken</button>
+    </div>
+  </section>
+
+  <!-- ============ BUCHUNGS-DIALOG ============ -->
+  <section id="s-book-slot" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('booking')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Platz buchen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Deine Auswahl</div>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-xl font-black text-slate-900">Platz <span id="slotCourt">3</span></div>
+            <div class="text-sm text-slate-500">Di, 21. April 2026</div>
+          </div>
+          <div class="text-right">
+            <div class="text-xl font-black brand-text"><span id="slotTime">18:00</span></div>
+            <div class="text-sm text-slate-500">60 Minuten</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hinweis Mitglieder -->
+      <div id="memberBookingHint" class="bg-blue-50 border border-blue-100 text-blue-900 text-xs rounded-lg px-3 py-2">
+        🎾 Private Buchung · Trainings und Mannschaftsspiele werden vom Vorstand eingetragen.
+      </div>
+
+      <!-- Admin-Umschalter -->
+      <div id="adminBookingOptions" class="bg-white rounded-xl p-4 shadow-sm border border-slate-100" style="display:none">
+        <label class="section-label">Buchungsart</label>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          <button class="border-2 brand-border brand-text rounded-lg py-2 text-xs font-bold">Privat</button>
+          <button onclick="go('admin-block'); setBlockType('training')" class="border border-slate-300 bg-slate-100 text-slate-800 rounded-lg py-2 text-xs font-bold">🎾 Training</button>
+          <button onclick="go('admin-block'); setBlockType('match')" class="border-0 bg-slate-800 text-white rounded-lg py-2 text-xs font-bold">🏆 Spiel</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <div>
+          <label class="section-label">Spielpartner</label>
+          <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+            <option>Thomas Bauer</option>
+            <option>Julia Klein</option>
+            <option>Peter Hofmann</option>
+            <option>— Gast (Mitgliedspflicht prüfen) —</option>
+          </select>
+        </div>
+        <div>
+          <label class="section-label">Spielart</label>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <button class="border-2 brand-border brand-text rounded-lg py-2 text-sm font-semibold">Einzel</button>
+            <button class="border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-semibold">Doppel</button>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="go('booking'); showToast('Platz gebucht ✓')" class="w-full primary rounded-xl py-3 font-semibold">Verbindlich buchen</button>
+    </div>
+  </section>
+
+  <!-- ============ EVENTS ============ -->
+  <section id="s-events" class="screen">
+    <header class="app-header px-5 pt-4 pb-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div onclick="go('home')" class="tsv-logo sm cursor-pointer"><img src="logo.svg" alt="TSV" /></div>
+        <div>
+          <div class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">TSV Untergruppenbach</div>
+          <div class="text-base font-bold text-slate-900">Termine</div>
+        </div>
+      </div>
+      <button onclick="go('profile')" class="w-9 h-9 rounded-full brand-bg text-white flex items-center justify-center font-semibold text-sm shadow-sm hover:opacity-90">MD</button>
+    </header>
+    <div class="scroll px-5 py-4 space-y-3 fade pb-24">
+      <!-- Aktionen -->
+      <div class="section-label mt-1 mb-2">Aktionen</div>
+      <div class="bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5" id="eventActionRow">
+        <div class="flex flex-wrap gap-2">
+          <button onclick="go('bewirtung-new')" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">＋ Bewirtung eintragen</button>
+          <button class="adminOnly bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" onclick="go('admin-create-event')">＋ Event anlegen</button>
+        </div>
+      </div>
+
+      <!-- Termine Label + Filter-Chips -->
+      <div class="section-label mt-4 mb-2">Termine</div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="filterEvents('alle', this)" class="ev-chip px-3 py-1.5 rounded-full brand-bg text-white text-xs font-semibold">Alle</button>
+        <button onclick="filterEvents('training', this)" class="ev-chip px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600">Hobby-Training</button>
+        <button onclick="filterEvents('arbeit', this)" class="ev-chip px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600">Arbeitseinsatz</button>
+        <button onclick="filterEvents('event', this)" class="ev-chip px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600">Event</button>
+        <button onclick="filterEvents('bewirtung', this)" class="ev-chip px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600">Bewirtung</button>
+      </div>
+
+      <!-- Flache Liste: alle zukünftigen Termine (dynamisch + statisch, sortierbar nach Datum) -->
+      <div id="eventsContainer" class="space-y-3 mt-1">
+
+      <!-- Arbeitseinsatz · 26. Apr -->
+      <div onclick="go('event-detail')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 cursor-pointer ev-item" data-event-type="arbeit" data-event-date="2026-04-26">
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0" style="background:#fee2e2;color:#991b1b;">
+            <div class="text-[10px] font-bold uppercase">Apr</div>
+            <div class="text-lg font-black leading-none">26</div>
+          </div>
+          <div class="flex-1">
+            <span class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#fee2e2;color:#991b1b;">Arbeitseinsatz</span>
+            <div class="font-bold text-slate-900 mt-1">Plätze herrichten</div>
+            <div class="text-xs text-slate-500 mt-1">09:00 – 13:00 · Tennisanlage · 4 h</div>
+            <div class="flex items-center justify-between gap-2 mt-2 text-xs">
+              <span class="text-slate-600">👥 8/12 Plätze</span>
+              <button onclick="event.stopPropagation(); go('event-detail')" class="primary rounded-lg px-3 py-1 text-xs font-bold">Anmelden</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Event · Saisonauftakt -->
+      <div onclick="go('event-saisonauftakt')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 ev-item cursor-pointer" data-event-type="event" data-event-date="2026-05-01">
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0" style="background:#dbeafe;color:#1e40af;">
+            <div class="text-[10px] font-bold uppercase">Mai</div>
+            <div class="text-lg font-black leading-none">01</div>
+          </div>
+          <div class="flex-1">
+            <span class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#dbeafe;color:#1e40af;">Event</span>
+            <div class="font-bold text-slate-900 mt-1">Saisonauftakt</div>
+            <div class="text-xs text-slate-500 mt-1">10:00 · Vereinsheim · 2 h</div>
+            <div class="flex items-center justify-between gap-2 mt-2 text-xs">
+              <span class="text-slate-600">👥 32 Anmeldungen</span>
+              <span class="bg-green-100 text-green-800 rounded-full px-2 py-0.5 font-semibold">✓ Angemeldet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Event · Vereinsmeisterschaft -->
+      <div onclick="go('event-vereinsmeisterschaft')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 ev-item cursor-pointer" data-event-type="event" data-event-date="2026-06-14">
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0" style="background:#dbeafe;color:#1e40af;">
+            <div class="text-[10px] font-bold uppercase">Jun</div>
+            <div class="text-lg font-black leading-none">14</div>
+          </div>
+          <div class="flex-1">
+            <span class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#dbeafe;color:#1e40af;">Event</span>
+            <div class="font-bold text-slate-900 mt-1">Vereinsmeisterschaft</div>
+            <div class="text-xs text-slate-500 mt-1">Ganztägig · Tennisanlage</div>
+            <div class="flex items-center justify-between gap-2 mt-2 text-xs">
+              <span class="text-slate-600">👥 18 Teilnehmer</span>
+              <button onclick="event.stopPropagation(); go('event-vereinsmeisterschaft')" class="primary rounded-lg px-3 py-1 text-xs font-bold">Anmelden</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      </div><!-- /#eventsContainer -->
+
+      <!-- Vergangene Termine (nur Admin) -->
+      <div class="adminOnly">
+        <div class="section-label mt-6 mb-2 ev-label" data-event-type="all">Vergangen · Abschluss offen</div>
+        <!-- Arbeitseinsatz · 12. Apr, abschließbar -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 ev-item" data-event-type="arbeit" data-event-date="2026-04-12">
+          <div class="flex items-start gap-3">
+            <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0 opacity-75" style="background:#fee2e2;color:#991b1b;">
+              <div class="text-[10px] font-bold uppercase">Apr</div>
+              <div class="text-lg font-black leading-none">12</div>
+            </div>
+            <div class="flex-1">
+              <span class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#fee2e2;color:#991b1b;">Arbeitseinsatz</span>
+              <div class="font-bold text-slate-900 mt-1">Frühjahrsputz Clubhaus</div>
+              <div class="text-xs text-slate-500 mt-1">09:00 – 12:00 · 3 h · 6 Teilnehmer</div>
+              <div class="flex items-center gap-2 mt-2 text-xs">
+                <span class="rounded-full px-2 py-0.5 font-semibold" style="background:#fef3c7;color:#92400e;">Noch nicht abgeschlossen</span>
+              </div>
+              <button onclick="showToast('Arbeitseinsatz abgeschlossen · 3 h gutgeschrieben ✓')" class="mt-3 w-full bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg py-2 text-xs font-bold text-slate-800">Abschließen & Stunden gutschreiben</button>
+            </div>
+          </div>
+        </div>
+        <!-- Event · 22. Mär, archiviert -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mt-2 ev-item" data-event-type="event" data-event-date="2026-03-22">
+          <div class="flex items-start gap-3">
+            <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0 opacity-75" style="background:#dbeafe;color:#1e40af;">
+              <div class="text-[10px] font-bold uppercase">Mrz</div>
+              <div class="text-lg font-black leading-none">22</div>
+            </div>
+            <div class="flex-1">
+              <span class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#dbeafe;color:#1e40af;">Event</span>
+              <div class="font-bold text-slate-900 mt-1">Jahreshauptversammlung</div>
+              <div class="text-xs text-slate-500 mt-1">19:00 · Clubhaus · archiviert</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EVENT DETAIL ============ -->
+  <section id="s-event-detail" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('events')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Arbeitseinsatz</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="hero-banner rounded-2xl p-5 text-white">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Arbeitseinsatz · 4 Stunden</div>
+        <div class="text-xl font-black mt-1">Plätze herrichten</div>
+        <div class="text-sm opacity-90 mt-1">Sonntag, 26. April · 09:00 – 13:00</div>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Beschreibung</div>
+        <p class="text-sm text-slate-700">Walzen der Sandplätze, Linien ziehen, Netze aufhängen, Zäune reinigen. Bitte festes Schuhwerk und Arbeitskleidung mitbringen. Verpflegung wird vom Verein gestellt.</p>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">Teilnehmer</div>
+          <span class="text-xs text-slate-500">8 von 12 Plätzen</span>
+        </div>
+        <div class="flex -space-x-2 mb-2">
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">TB</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">JK</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">PH</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">SM</div>
+          <div class="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-500">+4</div>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+          <div class="progress-bar h-1.5" style="width: 66%"></div>
+        </div>
+      </div>
+
+      <!-- Kommentare / Koordination (nur anzeigen — Kommentar fließt mit Anmeldung ein) -->
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-2">
+          <div class="section-label">Kommentare von Angemeldeten</div>
+          <span class="text-xs text-slate-400">3</span>
+        </div>
+        <div class="text-[11px] text-slate-500 mb-3">Wer bringt was mit? Die Kommentare hier entstehen bei der Anmeldung.</div>
+        <div class="space-y-2.5">
+          <div class="flex items-start gap-2">
+            <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-700 flex-shrink-0">AB</div>
+            <div class="flex-1 bg-slate-50 rounded-lg px-3 py-2">
+              <div class="text-xs font-bold text-slate-800">Anna Becker <span class="text-slate-400 font-normal">· angemeldet vor 2 Std.</span></div>
+              <div class="text-xs text-slate-700 mt-0.5">Ich bringe einen Nusskuchen mit 🍰</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-2">
+            <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-700 flex-shrink-0">DF</div>
+            <div class="flex-1 bg-slate-50 rounded-lg px-3 py-2">
+              <div class="text-xs font-bold text-slate-800">Daniel Fischer <span class="text-slate-400 font-normal">· angemeldet vor 1 Std.</span></div>
+              <div class="text-xs text-slate-700 mt-0.5">Nehme Kartoffelsalat – reicht für ca. 15 Personen.</div>
+            </div>
+          </div>
+          <div class="flex items-start gap-2">
+            <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-700 flex-shrink-0">JK</div>
+            <div class="flex-1 bg-slate-50 rounded-lg px-3 py-2">
+              <div class="text-xs font-bold text-slate-800">Julia Klein <span class="text-slate-400 font-normal">· angemeldet vor 30 Min.</span></div>
+              <div class="text-xs text-slate-700 mt-0.5">Ich kümmere mich um Getränke & Plastikbecher.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin-Bereich: Teilnehmer abhaken / Stunden gutschreiben -->
+      <div class="adminOnly bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-3">Teilnahme prüfen & Stunden gutschreiben</div>
+        <div class="space-y-2">
+          <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+            <input type="checkbox" checked class="w-5 h-5 accent-red-600" />
+            <div class="flex-1 text-sm font-medium text-slate-900">Thomas Bauer</div>
+            <span class="text-xs brand-text font-semibold">+4 h</span>
+          </label>
+          <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+            <input type="checkbox" checked class="w-5 h-5 accent-red-600" />
+            <div class="flex-1 text-sm font-medium text-slate-900">Julia Klein</div>
+            <span class="text-xs brand-text font-semibold">+4 h</span>
+          </label>
+          <label class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+            <input type="checkbox" class="w-5 h-5 accent-red-600" />
+            <div class="flex-1 text-sm font-medium text-slate-900">Peter Hofmann</div>
+            <span class="text-xs text-slate-400 font-semibold">—</span>
+          </label>
+        </div>
+        <button onclick="showToast('Stunden gutgeschrieben ✓')" class="w-full primary rounded-xl py-2.5 text-sm font-semibold mt-3">Stunden gutschreiben</button>
+      </div>
+
+      <!-- Anmeldung mit Kommentar (Mitglieder) -->
+      <div class="memberOnly bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Für diesen Termin anmelden</div>
+        <div class="text-[11px] text-slate-500 mb-2">Optional: Hinterlass einen Kommentar, z. B. was du mitbringst.</div>
+        <textarea id="arbeitCommentInput" placeholder="Kommentar zur Anmeldung (optional) — z. B. Ich bringe Kuchen mit" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none placeholder-slate-400 resize-none"></textarea>
+        <button onclick="submitArbeitSignup()" class="mt-3 w-full primary rounded-xl py-3 font-semibold">Für diesen Termin anmelden</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EVENT · SAISONAUFTAKT ============ -->
+  <section id="s-event-saisonauftakt" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('events')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1">Saisonauftakt</div>
+      <span class="text-[10px] uppercase tracking-wider bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-bold">Angemeldet</span>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="rounded-2xl p-5 text-white" style="background:linear-gradient(135deg,#2563eb,#1e40af);">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Event · Saisonstart</div>
+        <div class="text-xl font-black mt-1">Saisonauftakt 2026</div>
+        <div class="text-sm opacity-90 mt-1">Freitag, 1. Mai · 10:00 · Vereinsheim</div>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Beschreibung</div>
+        <p class="text-sm text-slate-700">Gemeinsamer Start in die Saison 2026. Offizielle Platz­eröffnung, kurze Ansprache vom Vorstand, Mannschafts­vorstellung und Umtrunk. Für Grillgut und Getränke ist gesorgt.</p>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">Anmeldungen</div>
+          <span class="text-xs text-slate-500">32 Mitglieder</span>
+        </div>
+        <div class="flex -space-x-2 mb-2">
+          <div class="w-8 h-8 rounded-full brand-bg text-white border-2 border-white flex items-center justify-center text-xs font-black">MD</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">TB</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">AB</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">DF</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">EV</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">JK</div>
+          <div class="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-500">+26</div>
+        </div>
+        <div class="text-[11px] text-slate-500">Du und 31 weitere haben zugesagt.</div>
+      </div>
+
+      <!-- Mitglieder: angemeldet → zurückziehen möglich -->
+      <div class="memberOnly bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs font-bold">✓ Angemeldet</span>
+        </div>
+        <div class="text-[11px] text-slate-500 mb-2">Du bist seit dem 14. April angemeldet. Planänderung?</div>
+        <button onclick="showToast('Anmeldung zurückgezogen')" class="w-full bg-white border border-slate-300 text-slate-700 rounded-xl py-3 text-sm font-bold hover:bg-slate-50">Anmeldung zurückziehen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EVENT · VEREINSMEISTERSCHAFT ============ -->
+  <section id="s-event-vereinsmeisterschaft" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('events')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1">Vereinsmeisterschaft</div>
+      <span class="text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">Noch nicht angemeldet</span>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="rounded-2xl p-5 text-white" style="background:linear-gradient(135deg,#dc2626,#991b1b);">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Event · Turnier</div>
+        <div class="text-xl font-black mt-1">Vereinsmeisterschaft 2026</div>
+        <div class="text-sm opacity-90 mt-1">Sonntag, 14. Juni · ganztägig · Tennisanlage</div>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Beschreibung</div>
+        <p class="text-sm text-slate-700">Clubinternes Turnier in Einzel- und Doppelkonkurrenzen für alle Aktiven. Anmelde­schluss: 31. Mai. Spielplan wird 3 Tage vorher veröffentlicht. Verpflegung durch den Bewirtungsdienst.</p>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">Teilnehmer</div>
+          <span class="text-xs text-slate-500">18 angemeldet</span>
+        </div>
+        <div class="flex -space-x-2 mb-2">
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">TB</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">FH</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">PH</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">DF</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">EV</div>
+          <div class="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-700">AB</div>
+          <div class="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-xs font-semibold text-slate-500">+12</div>
+        </div>
+        <div class="text-[11px] text-slate-500">Noch 41 Tage bis zum Anmeldeschluss.</div>
+      </div>
+
+      <!-- Mitglieder: NICHT angemeldet → Anmeldung mit Konkurrenzauswahl -->
+      <div class="memberOnly bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Anmeldung zur Meisterschaft</div>
+        <div class="text-[11px] text-slate-500 mb-3">Wähle, in welchen Konkurrenzen du antreten möchtest. Änderungen bis 31. Mai möglich.</div>
+        <div class="space-y-2">
+          <label class="flex items-center gap-3 p-2 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
+            <input type="checkbox" class="w-5 h-5 accent-red-600" />
+            <div class="flex-1 text-sm font-medium text-slate-900">Herren-Einzel</div>
+          </label>
+          <label class="flex items-center gap-3 p-2 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
+            <input type="checkbox" class="w-5 h-5 accent-red-600" />
+            <div class="flex-1 text-sm font-medium text-slate-900">Herren-Doppel</div>
+          </label>
+          <label class="flex items-center gap-3 p-2 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
+            <input type="checkbox" class="w-5 h-5 accent-red-600" />
+            <div class="flex-1 text-sm font-medium text-slate-900">Mixed-Doppel</div>
+          </label>
+        </div>
+        <button onclick="showToast('Anmeldung zur Vereinsmeisterschaft gespeichert ✓')" class="mt-3 w-full primary rounded-xl py-3 font-semibold">Verbindlich anmelden</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MITGLIEDER ============ -->
+  <section id="s-members" class="screen">
+    <header class="app-header px-5 pt-4 pb-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div onclick="go('home')" class="tsv-logo sm cursor-pointer"><img src="logo.svg" alt="TSV" /></div>
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">TSV Untergruppenbach</div>
+            <div class="text-base font-bold text-slate-900">Mitglieder</div>
+          </div>
+        </div>
+        <button onclick="go('profile')" class="w-9 h-9 rounded-full brand-bg text-white flex items-center justify-center font-semibold text-sm shadow-sm hover:opacity-90">MD</button>
+      </div>
+      <div class="mt-3 bg-slate-100 rounded-lg px-3 py-2 flex items-center gap-2">
+        <span class="text-sm text-slate-400">🔍</span>
+        <input placeholder="Mitglied suchen…" class="bg-transparent placeholder-slate-400 text-slate-800 text-sm flex-1 outline-none" />
+      </div>
+      <div class="flex gap-2 mt-3">
+        <button id="tabAll" onclick="switchMembersTab('all')" class="px-3 py-1.5 rounded-full brand-bg text-white text-xs font-bold">Mitglieder</button>
+        <button id="tabTeams" onclick="switchMembersTab('teams')" class="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">Mannschaften</button>
+      </div>
+    </header>
+    <div class="scroll fade pb-24">
+      <!-- TAB: Alle Mitglieder -->
+      <div id="membersViewAll" class="px-5 py-4">
+        <div class="section-label mb-2">A – Z</div>
+        <div id="memberList" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"></div>
+      </div>
+
+      <!-- TAB: Mannschaften -->
+      <div id="membersViewTeams" class="px-5 py-4 hidden space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="section-label">Aktive Saison 2026</div>
+          <button class="adminOnly text-xs brand-text font-bold" onclick="go('team-edit')">+ Neue Mannschaft</button>
+        </div>
+        <div id="teamList" class="space-y-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MITGLIEDS-DETAIL ============ -->
+  <section id="s-member-detail" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('members')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1">Mitglied</div>
+      <button class="adminOnly text-xs brand-text font-bold">Bearbeiten</button>
+    </header>
+    <div class="scroll px-5 py-5 space-y-4 fade pb-24">
+      <div class="text-center">
+        <div class="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-3xl font-black text-red-800">TB</div>
+        <div class="text-xl font-black text-slate-900 mt-3">Thomas Bauer</div>
+        <div class="text-sm text-slate-500">Herren I · LK 14.2</div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">📧</div>
+          <div class="flex-1">
+            <div class="text-xs text-slate-500">E-Mail</div>
+            <div class="text-sm font-medium text-slate-900">thomas.bauer@example.de</div>
+          </div>
+        </div>
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">📱</div>
+          <div class="flex-1">
+            <div class="text-xs text-slate-500">Telefon</div>
+            <div class="text-sm font-medium text-slate-900">+49 171 1234567</div>
+          </div>
+        </div>
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">🎾</div>
+          <div class="flex-1">
+            <div class="text-xs text-slate-500">Mannschaft</div>
+            <div class="text-sm font-medium text-slate-900">Herren I</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stunden-Box: nur Admins sehen -->
+      <div class="adminOnly">
+        <div class="section-label mb-2">Arbeitsstunden (nur für Admins sichtbar)</div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <div class="text-xl font-black text-slate-900">6,0 <span class="text-sm text-slate-500 font-medium">von 10 h</span></div>
+              <div class="text-xs text-slate-500 mt-0.5">Saison 2026</div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-slate-500">Offen</div>
+              <div class="text-lg font-bold brand-text">4,0 h</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-4">
+            <div class="progress-bar h-2 rounded-full" style="width: 60%"></div>
+          </div>
+
+          <!-- Inline Quick-Add: Admin kann direkt Stunden zuweisen -->
+          <div class="section-label mb-2">Schnell-Eintrag</div>
+          <div class="grid grid-cols-4 gap-1.5 mb-2">
+            <button onclick="showToast('+1 h für Thomas ✓')" class="border border-slate-200 rounded-lg py-2 text-sm font-bold text-slate-700 hover:border-red-300">+1 h</button>
+            <button onclick="showToast('+2 h für Thomas ✓')" class="border border-slate-200 rounded-lg py-2 text-sm font-bold text-slate-700 hover:border-red-300">+2 h</button>
+            <button onclick="showToast('+4 h für Thomas ✓')" class="border border-slate-200 rounded-lg py-2 text-sm font-bold text-slate-700 hover:border-red-300">+4 h</button>
+            <button onclick="go('admin-assign-hours')" class="brand-bg text-white rounded-lg py-2 text-sm font-bold">…</button>
+          </div>
+          <button onclick="go('admin-member-history')" class="text-xs brand-text font-semibold mt-1">Historie anzeigen →</button>
+        </div>
+      </div>
+
+      <!-- Admin: Mitglied entfernen -->
+      <div class="adminOnly">
+        <div class="section-label mb-2 mt-4">Gefahrenzone</div>
+        <button onclick="if(confirm('Mitglied Thomas Bauer wirklich aus dem Verein entfernen? Diese Aktion kann nicht rückgängig gemacht werden.')){showToast('Mitglied entfernt'); go('members');}" class="w-full bg-white border border-red-300 text-red-700 hover:bg-red-50 rounded-xl py-3 text-sm font-bold">
+          Mitglied aus Verein entfernen
+        </button>
+        <div class="text-[11px] text-slate-500 mt-2">Der Account wird gelöscht. Alle Daten bleiben für Abrechnungen bis Saisonende erhalten.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MEINE STUNDEN (Mitglied) ============ -->
+  <section id="s-hours" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('home')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Meine Arbeitsstunden</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="hero-banner rounded-2xl p-5 text-white">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Saison 2026</div>
+        <div class="text-3xl font-black mt-1">4,5 / 10 h</div>
+        <div class="text-sm opacity-90 mt-1">Noch 5,5 h zu leisten</div>
+        <div class="w-full bg-white/20 rounded-full h-2 mt-3 overflow-hidden">
+          <div class="bg-white h-2 rounded-full" style="width: 45%"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label mb-2">Historie</div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+          <div class="px-4 py-3 flex items-center gap-3">
+            <div class="w-10 h-10 brand-soft rounded-lg flex items-center justify-center text-sm font-bold">4h</div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-slate-900">Plätze herrichten</div>
+              <div class="text-xs text-slate-500">12. April 2026 · Arbeitseinsatz</div>
+            </div>
+            <span class="text-xs bg-green-100 text-green-800 rounded-full px-2 py-0.5 font-semibold">✓</span>
+          </div>
+          <div class="px-4 py-3 flex items-center gap-3">
+            <div class="w-10 h-10 brand-soft rounded-lg flex items-center justify-center text-sm font-bold">0,5h</div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-slate-900">Saisoneröffnung vorbereiten</div>
+              <div class="text-xs text-slate-500">8. April 2026 · Zugewiesen</div>
+            </div>
+            <span class="text-xs bg-green-100 text-green-800 rounded-full px-2 py-0.5 font-semibold">✓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PROFIL ============ -->
+  <section id="s-profile" class="screen">
+    <header class="app-header px-5 pt-4 pb-3 flex items-center gap-3">
+      <div onclick="go('home')" class="tsv-logo sm cursor-pointer"><img src="logo.svg" alt="TSV" /></div>
+      <div>
+        <div class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">TSV Untergruppenbach</div>
+        <div class="text-base font-bold text-slate-900">Mein Profil</div>
+      </div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 text-center">
+        <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-2xl font-black text-red-800">MD</div>
+        <div class="text-lg font-black text-slate-900 mt-3">Marius Deutsch</div>
+        <div class="text-sm text-slate-500">Herren II · <span class="adminOnly brand-text font-semibold">Admin</span><span class="memberOnly">Mitglied</span></div>
+      </div>
+
+      <div>
+        <div class="section-label mb-2">Konto</div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+          <button class="px-4 py-3 flex items-center gap-3 w-full text-left hover:bg-slate-50">
+            <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">👤</div>
+            <div class="flex-1 text-sm font-medium text-slate-900">Stammdaten</div>
+            <span class="text-slate-400">›</span>
+          </button>
+          <button class="px-4 py-3 flex items-center gap-3 w-full text-left hover:bg-slate-50">
+            <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">🔔</div>
+            <div class="flex-1 text-sm font-medium text-slate-900">Benachrichtigungen</div>
+            <span class="text-slate-400">›</span>
+          </button>
+          <button class="px-4 py-3 flex items-center gap-3 w-full text-left hover:bg-slate-50">
+            <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">🔒</div>
+            <div class="flex-1 text-sm font-medium text-slate-900">Passwort ändern</div>
+            <span class="text-slate-400">›</span>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label mb-2">Verein</div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 divide-y divide-slate-100">
+          <button class="px-4 py-3 flex items-center gap-3 w-full text-left hover:bg-slate-50">
+            <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">📋</div>
+            <div class="flex-1 text-sm font-medium text-slate-900">Satzung & Beitragsordnung</div>
+            <span class="text-slate-400">›</span>
+          </button>
+          <button class="px-4 py-3 flex items-center gap-3 w-full text-left hover:bg-slate-50">
+            <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">🛡</div>
+            <div class="flex-1 text-sm font-medium text-slate-900">Datenschutz (DSGVO)</div>
+            <span class="text-slate-400">›</span>
+          </button>
+        </div>
+      </div>
+
+      <button onclick="go('login')" class="w-full bg-white border border-slate-200 text-slate-700 rounded-xl py-3 font-semibold">Abmelden</button>
+      <div class="text-center text-xs text-slate-400">Vereins-App · v0.2 Mockup</div>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN: STUNDEN-ÜBERSICHT ============ -->
+  <section id="s-admin-hours" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('home')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1">Stunden · Übersicht</div>
+      <button onclick="go('admin-assign-hours')" class="brand-bg text-white text-xs font-bold px-3 py-1.5 rounded-full">+ Zuweisen</button>
+    </header>
+    <div class="scroll px-5 py-4 space-y-3 fade pb-24">
+      <!-- Filterleiste -->
+      <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 flex items-center gap-2">
+        <select class="text-xs font-semibold text-slate-700 bg-slate-100 rounded-full px-3 py-1.5 outline-none">
+          <option>Saison 2026</option>
+          <option>Saison 2025</option>
+        </select>
+        <select class="text-xs font-semibold text-slate-700 bg-slate-100 rounded-full px-3 py-1.5 outline-none">
+          <option>Alle Mannschaften</option>
+          <option>Herren I</option>
+          <option>Damen I</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2">
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-center">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Soll erfüllt</div>
+          <div class="text-lg font-black text-green-600 mt-1">64</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-center">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Im Rückstand</div>
+          <div class="text-lg font-black brand-text mt-1">34</div>
+        </div>
+        <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 text-center">
+          <div class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Gesamt</div>
+          <div class="text-lg font-black text-slate-900 mt-1">98</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label mb-2 flex items-center justify-between">
+          <span>Mitglieder-Stand</span>
+          <span class="text-slate-400">sortiert nach offen ↓</span>
+        </div>
+        <div id="adminHoursList" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN: STUNDEN ZUWEISEN ============ -->
+  <section id="s-admin-assign-hours" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('admin-hours')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Stunden zuweisen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="bg-blue-50 border border-blue-100 text-blue-900 text-xs rounded-lg px-3 py-2">
+        💡 Schnellweg: Auf der Mitglieder-Detailseite kannst du Stunden auch mit einem Klick zuweisen.
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <div>
+          <label class="section-label">Mitglied</label>
+          <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+            <option>— Bitte wählen —</option>
+            <option>Thomas Bauer (Herren I)</option>
+            <option>Julia Klein (Damen I)</option>
+            <option>Peter Hofmann (Herren II)</option>
+          </select>
+        </div>
+        <div>
+          <label class="section-label">Stunden</label>
+          <div class="grid grid-cols-4 gap-1.5 mt-2">
+            <button class="border border-slate-200 rounded-lg py-2 text-sm font-bold text-slate-700">1 h</button>
+            <button class="border-2 brand-border brand-text rounded-lg py-2 text-sm font-bold">2 h</button>
+            <button class="border border-slate-200 rounded-lg py-2 text-sm font-bold text-slate-700">4 h</button>
+            <input type="number" placeholder="..." class="border border-slate-200 rounded-lg px-2 py-2 text-sm text-center" />
+          </div>
+        </div>
+        <div>
+          <label class="section-label">Grund / Notiz</label>
+          <input placeholder="z. B. Kaffeetheke Saisonauftakt" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white text-sm" />
+        </div>
+        <div>
+          <label class="section-label">Datum</label>
+          <input type="date" value="2026-04-21" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+        </div>
+      </div>
+
+      <button onclick="go('admin-hours'); showToast('2h für Thomas Bauer zugewiesen ✓')" class="w-full primary rounded-xl py-3 font-semibold">Gutschreiben</button>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN: EVENT ANLEGEN ============ -->
+  <section id="s-admin-create-event" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('home')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Termin anlegen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-3 fade pb-24">
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <!-- Typ-Umschalter -->
+        <div>
+          <label class="section-label">Typ</label>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <button id="evtTypeArbeit" onclick="setEvtType('arbeit')" class="border-2 rounded-lg py-2 text-xs font-bold flex flex-col items-center gap-1" style="border-color:#991b1b;background:#fee2e2;color:#991b1b;">
+              <span>🧹 Arbeitseinsatz</span>
+              <span class="text-[10px] font-medium opacity-80">Stunden werden angerechnet</span>
+            </button>
+            <button id="evtTypeEvent" onclick="setEvtType('event')" class="border rounded-lg py-2 text-xs font-bold text-slate-600 border-slate-200 flex flex-col items-center gap-1">
+              <span>🎉 Event</span>
+              <span class="text-[10px] font-medium text-slate-500">Vereinstermin, ohne Stunden</span>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="section-label">Titel</label>
+          <input id="evtTitle" value="Plätze herrichten" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="section-label">Datum</label>
+            <input type="date" value="2026-04-26" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+          <div>
+            <label class="section-label">Start</label>
+            <input type="time" value="09:00" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+        </div>
+        <div id="evtDurationWrap">
+          <label class="section-label">Dauer (Stunden)</label>
+          <input type="number" value="4" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          <div class="text-[11px] text-slate-500 mt-1" id="evtDurationHint">Wird Teilnehmern als Arbeitsstunden gutgeschrieben.</div>
+        </div>
+
+        <!-- Teilnahme an/aus -->
+        <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input id="evtNeedsRsvp" type="checkbox" checked onchange="toggleRsvp()" class="w-5 h-5 accent-red-600 flex-shrink-0" />
+            <div class="flex-1">
+              <div class="text-sm font-bold text-slate-900">Mit Anmeldung</div>
+              <div class="text-[11px] text-slate-500">Mitglieder können sich an-/abmelden und sehen die Teilnehmerliste.</div>
+            </div>
+          </label>
+          <div id="evtMaxWrap" class="mt-3">
+            <label class="section-label">Max. Teilnehmer</label>
+            <input type="number" value="12" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+            <div class="text-[11px] text-slate-500 mt-1">Leer lassen = unbegrenzt.</div>
+          </div>
+        </div>
+
+        <!-- Kommentare an/aus -->
+        <label class="flex items-center gap-3 cursor-pointer bg-slate-50 rounded-lg p-3 border border-slate-200">
+          <input type="checkbox" checked class="w-5 h-5 accent-red-600 flex-shrink-0" />
+          <div class="flex-1">
+            <div class="text-sm font-bold text-slate-900">Kommentare erlauben</div>
+            <div class="text-[11px] text-slate-500">Für Koordination – z. B. wer bringt Kuchen, Salat, Getränke.</div>
+          </div>
+        </label>
+
+        <div>
+          <label class="section-label">Beschreibung</label>
+          <textarea rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">Walzen, Linien ziehen, Netze aufhängen, Zäune reinigen.</textarea>
+        </div>
+      </div>
+      <button onclick="go('events'); showToast('Termin veröffentlicht ✓')" class="w-full primary rounded-xl py-3 font-semibold">Veröffentlichen</button>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN: NEWS SCHREIBEN ============ -->
+  <section id="s-admin-news" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('home')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">News schreiben</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-3 fade pb-24">
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <div>
+          <label class="section-label">Überschrift</label>
+          <input placeholder="Saisonauftakt am 1. Mai" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+        </div>
+        <div>
+          <label class="section-label">Text</label>
+          <textarea rows="6" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" placeholder="Liebe Mitglieder, …"></textarea>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked class="w-4 h-4 accent-red-600" /> Push-Benachrichtigung an alle senden
+        </div>
+      </div>
+      <button onclick="go('home'); showToast('News veröffentlicht ✓')" class="w-full primary rounded-xl py-3 font-semibold">Veröffentlichen</button>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN: MITGLIED ANLEGEN ============ -->
+  <section id="s-admin-create-member" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('home')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Mitglied anlegen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-3 fade pb-24">
+      <div class="bg-blue-50 border border-blue-100 text-blue-900 text-xs rounded-lg px-3 py-2">
+        🔒 Zugänge zur App werden ausschließlich vom Vorstand erzeugt. Das Mitglied erhält eine Einladungs-Mail mit dem Start-Passwort <span class="font-mono font-bold">TSV6060</span> und kann dieses nach dem ersten Login selbst ändern.
+      </div>
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="section-label">Vorname</label>
+            <input class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+          <div>
+            <label class="section-label">Nachname</label>
+            <input class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+        </div>
+        <div>
+          <label class="section-label">E-Mail</label>
+          <input type="email" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+        </div>
+        <div>
+          <label class="section-label">Telefon</label>
+          <input type="tel" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="section-label">Mannschaft</label>
+            <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+              <option>Keine</option>
+              <option>Herren I</option>
+              <option>Herren II</option>
+              <option>Damen I</option>
+              <option>Jugend U18</option>
+            </select>
+          </div>
+          <div>
+            <label class="section-label">Rolle</label>
+            <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+              <option>Mitglied</option>
+              <option>Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-slate-600 pt-2">
+          <input type="checkbox" checked class="w-4 h-4 accent-red-600" /> Einladungs-Mail sofort versenden
+        </div>
+      </div>
+      <button onclick="go('home'); showToast('Mitglied angelegt & Einladung verschickt ✓')" class="w-full primary rounded-xl py-3 font-semibold">Anlegen & einladen</button>
+    </div>
+  </section>
+
+  <!-- ============ MANNSCHAFT DETAIL / EDIT ============ -->
+  <section id="s-team-edit" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('members')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1" id="teamDetailTitle">Herren I</div>
+      <button class="adminOnly text-xs brand-text font-bold">Bearbeiten</button>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="hero-banner rounded-2xl p-5 text-white">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Verbandsspielklasse</div>
+        <div class="text-xl font-black mt-1" id="teamDetailName">Herren I</div>
+        <div class="text-sm opacity-90 mt-1">Bezirksliga · Saison 2026</div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="section-label">Kader</div>
+          <button class="adminOnly text-xs brand-text font-bold" onclick="showToast('Spieler-Auswahl geöffnet')">+ Spieler zuweisen</button>
+        </div>
+        <div id="teamRoster" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden"></div>
+      </div>
+
+      <div class="adminOnly">
+        <div class="section-label mb-2">Mannschaftsdaten</div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 space-y-3">
+          <div>
+            <label class="section-label">Mannschaftsname</label>
+            <input value="Herren I" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+          <div>
+            <label class="section-label">Mannschaftsführer</label>
+            <select class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white">
+              <option>Thomas Bauer</option>
+              <option>Peter Hofmann</option>
+            </select>
+          </div>
+          <div>
+            <label class="section-label">Spielklasse</label>
+            <input value="Bezirksliga" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white" />
+          </div>
+        </div>
+      </div>
+
+      <button class="adminOnly w-full bg-white border border-red-200 text-red-700 rounded-xl py-3 font-semibold" onclick="showToast('Mannschaft gespeichert ✓')">Änderungen speichern</button>
+    </div>
+  </section>
+
+  <!-- ============ BEWIRTUNG · NEU EINTRAGEN ============ -->
+  <section id="s-bewirtung-new" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('events')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Bewirtung eintragen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="rounded-2xl p-5 text-white" style="background:linear-gradient(135deg,#dc2626,#991b1b);">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Bewirtung / Bar-Dienst</div>
+        <div class="text-xl font-black mt-1">Dienst übernehmen</div>
+        <div class="text-sm opacity-90 mt-1">Pro Bewirtungstag werden insgesamt 10 Arbeitsstunden angerechnet und auf alle Helfer verteilt.</div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <label class="section-label">Datum</label>
+        <input id="bewDate" type="date" value="2026-05-10" class="w-full border border-slate-200 rounded-lg px-3 py-2 mt-2 bg-white font-semibold" />
+        <div class="text-[11px] text-slate-500 mt-1">Wochentage und Heimspieltage sind besonders gern gesehen.</div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Organisator & Helfer</div>
+        <div class="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">
+          <div class="w-9 h-9 rounded-full brand-bg text-white flex items-center justify-center font-black text-sm">MD</div>
+          <div class="flex-1">
+            <div class="text-sm font-bold text-slate-900">Marius Deutsch</div>
+            <div class="text-[11px] text-slate-500">Du übernimmst den Dienst</div>
+          </div>
+          <span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Organisator</span>
+        </div>
+        <div id="bewHelperSlots" class="space-y-2"></div>
+        <button onclick="addBewHelper()" id="bewAddBtn" class="mt-2 w-full bg-white border border-dashed border-slate-300 text-slate-600 rounded-lg py-2 text-sm font-semibold hover:border-red-300 hover:text-red-700">+ Helfer hinzufügen</button>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Stunden-Gutschrift</div>
+        <div id="bewHoursPreview" class="flex items-end justify-between">
+          <div>
+            <div class="text-3xl font-black text-slate-900" id="bewHoursNum">10</div>
+            <div class="text-xs text-slate-500">Stunden pro Helfer</div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-slate-500" id="bewHoursSplit">1 Person</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Gesamt 10 h</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-1 mt-3 text-center text-[10px] font-bold">
+          <div class="rounded-lg py-2 px-1 bg-slate-100 text-slate-700" data-bew-key="1"><div class="text-sm">10 h</div><div class="text-[9px] font-semibold">solo</div></div>
+          <div class="rounded-lg py-2 px-1 bg-slate-100 text-slate-700" data-bew-key="2"><div class="text-sm">5 h</div><div class="text-[9px] font-semibold">zu zweit</div></div>
+          <div class="rounded-lg py-2 px-1 bg-slate-100 text-slate-700" data-bew-key="3"><div class="text-sm">3,5 h</div><div class="text-[9px] font-semibold">zu dritt</div></div>
+          <div class="rounded-lg py-2 px-1 bg-slate-100 text-slate-700" data-bew-key="4"><div class="text-sm">2,5 h</div><div class="text-[9px] font-semibold">zu viert</div></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+        Nach dem Bewirtungstag schließt ein Admin den Dienst ab und die Stunden werden automatisch gutgeschrieben. Bis dahin bleibt die Bewirtung als Termin im Kalender sichtbar.
+      </div>
+
+      <button onclick="submitBewirtung()" class="w-full primary rounded-xl py-3 font-semibold">Bewirtung verbindlich eintragen</button>
+      <button onclick="go('events')" class="w-full bg-white border border-slate-200 text-slate-700 rounded-xl py-3 font-semibold">Abbrechen</button>
+    </div>
+  </section>
+
+  <!-- ============ BEWIRTUNG · DETAIL ============ -->
+  <section id="s-bewirtung-detail" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('events')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1">Bewirtung</div>
+      <span id="bewDetailStatusPill" class="text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">Offen</span>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="rounded-2xl p-5 text-white" style="background:linear-gradient(135deg,#dc2626,#991b1b);">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Bewirtung · Bar-Dienst</div>
+        <div id="bewDetailDate" class="text-xl font-black mt-1">Samstag, 25. April</div>
+        <div id="bewDetailHoursInfo" class="text-sm opacity-90 mt-1 adminOnly">10 h insgesamt · geteilt auf 2 Helfer → 5 h pro Person</div>
+        <div id="bewDetailTeamInfo" class="text-sm opacity-90 mt-1 memberOnly">2 Personen im Team</div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-3">Organisator & Helfer</div>
+        <div id="bewDetailHelpers" class="space-y-2"></div>
+      </div>
+
+      <!-- Gäste-Übersicht (nur Anzeige — Anmeldung erfolgt in der Terminliste) -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="section-label mb-0">Gäste</div>
+          <span id="bewDetailGuestCount" class="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold">0 Gäste</span>
+        </div>
+        <div class="text-[11px] text-slate-500 mb-3">Mitglieder melden sich direkt in der Terminliste als Gast an.</div>
+        <div id="bewDetailGuests" class="space-y-2"></div>
+      </div>
+
+      <!-- Nur Admin: Dienst abschließen & Stunden übertragen -->
+      <div class="adminOnly bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Admin-Aktion</div>
+        <div id="bewDetailAdminText" class="text-sm text-slate-700 mb-3">Nach dem Dienst hier abschließen. Die Stunden werden automatisch auf alle Helfer übertragen.</div>
+        <button id="bewDetailCompleteBtn" onclick="completeBewirtung()" class="w-full primary rounded-xl py-3 font-semibold">Abschließen & Stunden gutschreiben</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RANGLISTE (Pyramide) ============ -->
+  <section id="s-ranking" class="screen">
+    <header class="app-header px-5 pt-4 pb-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div onclick="go('home')" class="tsv-logo sm cursor-pointer"><img src="logo.svg" alt="TSV" /></div>
+          <div>
+            <div class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">TSV Untergruppenbach</div>
+            <div class="text-base font-bold text-slate-900">Rangliste</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="go('profile')" class="w-9 h-9 rounded-full brand-bg text-white flex items-center justify-center font-semibold text-sm shadow-sm hover:opacity-90">MD</button>
+        </div>
+      </div>
+      <!-- Kategorien -->
+      <div class="flex gap-2 mt-3 overflow-x-auto">
+        <button id="catHerren" onclick="switchRankingCat('herren')" class="cat-pill on">Herren</button>
+        <button id="catDamen"  onclick="switchRankingCat('damen')"  class="cat-pill off">Damen</button>
+        <button id="catJugend" onclick="switchRankingCat('jugend')" class="cat-pill off">Jugend</button>
+      </div>
+    </header>
+
+    <!-- Sub-Tabs -->
+    <div class="bg-white border-b border-slate-100 flex">
+      <button id="subPyramide"   onclick="switchRankingSub('pyramide')"   class="sub-tab on">Pyramide</button>
+      <button id="subForderungen" onclick="switchRankingSub('forderungen')" class="sub-tab">Forderungen <span id="subForderungenBadge" class="hidden ml-1 inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5">1</span></button>
+      <button id="subErgebnisse" onclick="switchRankingSub('ergebnisse')" class="sub-tab">Ergebnisse</button>
+    </div>
+
+    <div class="scroll fade pb-24">
+      <!-- VIEW: Pyramide -->
+      <div id="rankingViewPyramide" class="px-3 pt-4">
+        <div id="pyramidHost" class="pyramid"></div>
+        <div id="pyramidLegend" class="px-4 text-[11px] text-slate-500 space-y-1 mb-4">
+          <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded border" style="background: var(--tsv-red-soft); border-color: var(--tsv-red);"></span> Deine Position</div>
+          <div class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded border-2 border-dashed" style="border-color: var(--tsv-red);"></span> Kannst du fordern</div>
+        </div>
+        <!-- Admin-Bereich -->
+        <div class="adminOnly px-4 mb-4">
+          <button onclick="go('admin-ranking')" class="w-full bg-slate-100 hover:bg-slate-200 rounded-xl py-3 px-4 flex items-center gap-3 border border-slate-200 text-left">
+            <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center text-base">⚙</div>
+            <div class="flex-1">
+              <div class="text-sm font-bold text-slate-900">Rangliste verwalten</div>
+              <div class="text-[11px] text-slate-500">Spieler verschieben, Forderungen moderieren</div>
+            </div>
+            <div class="text-slate-400">›</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- VIEW: Forderungen -->
+      <div id="rankingViewForderungen" class="px-4 pt-4 hidden">
+        <div class="section-label mb-2">Laufende Forderungen</div>
+        <div id="activeChallengesHost" class="space-y-2"></div>
+        <div id="emptyChallenges" class="hidden bg-white rounded-xl p-6 text-center border border-slate-100">
+          <div class="text-3xl mb-2">⚔</div>
+          <div class="text-sm font-semibold text-slate-700">Aktuell keine Forderungen in dieser Kategorie</div>
+          <div class="text-xs text-slate-500 mt-1">Tippe in der Pyramide auf einen Spieler, um ihn zu fordern.</div>
+        </div>
+      </div>
+
+      <!-- VIEW: Ergebnisse -->
+      <div id="rankingViewErgebnisse" class="px-4 pt-4 hidden">
+        <div class="section-label mb-2">Abgeschlossene Matches</div>
+        <div id="resultsHost" class="space-y-2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ NEUE FORDERUNG ============ -->
+  <section id="s-challenge-new" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('ranking')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Forderung abschicken</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="hero-banner rounded-2xl p-5 text-white">
+        <div class="text-[10px] uppercase tracking-[0.2em] opacity-80">Du forderst</div>
+        <div id="challengeTarget" class="text-xl font-black mt-1">–</div>
+        <div id="challengeMeta" class="text-sm opacity-90 mt-1">Position in Pyramide</div>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Spielregeln</div>
+        <ul class="text-sm text-slate-700 space-y-1.5">
+          <li>• Match innerhalb von <b>14 Tagen</b> austragen.</li>
+          <li>• Termin selbst mit Gegner abstimmen.</li>
+          <li>• Platzbuchung erfolgt <b>automatisch</b> (Priorität 1 → 4 → 3 → 2 → 5 → 6).</li>
+          <li>• <b>2 Gewinnsätze</b>, bei 1:1 Match-Tiebreak bis 10.</li>
+          <li>• Gewinnst du, tauscht ihr in der Pyramide die Plätze.</li>
+          <li>• Du kannst die Frist einmalig um 14 Tage verlängern.</li>
+          <li>• Verfällt die Frist → Forderung ungültig, Plätze bleiben.</li>
+        </ul>
+      </div>
+
+      <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+        <div class="section-label mb-2">Benachrichtigung</div>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">📧</div>
+          <div class="flex-1 text-sm">
+            <div class="font-semibold text-slate-900">E-Mail an Gegner</div>
+            <div class="text-xs text-slate-500">Wird automatisch über Resend verschickt.</div>
+          </div>
+          <label class="relative inline-block w-10 h-6">
+            <input type="checkbox" checked class="peer sr-only" />
+            <span class="absolute inset-0 rounded-full bg-slate-200 peer-checked:bg-red-600 transition"></span>
+            <span class="absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition peer-checked:translate-x-4"></span>
+          </label>
+        </div>
+        <div class="flex items-center gap-3 mt-3">
+          <div class="w-9 h-9 brand-soft rounded-lg flex items-center justify-center">🔔</div>
+          <div class="flex-1 text-sm">
+            <div class="font-semibold text-slate-900">In-App-Badge</div>
+            <div class="text-xs text-slate-500">Gegner sieht 1 neue Forderung in der Rangliste.</div>
+          </div>
+          <span class="text-xs text-green-700 font-bold">Immer an</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-100 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+        <div class="font-bold mb-1 text-slate-800">Tipp: App installieren</div>
+        Installiere die App auf dem Homescreen (PWA), damit dein Gegner Push-Benachrichtigungen empfangen kann. Im Profil unter „App installieren".
+      </div>
+
+      <button onclick="submitChallenge()" class="w-full primary rounded-xl py-3 font-semibold">Forderung verbindlich abschicken</button>
+      <button onclick="go('ranking')" class="w-full bg-white border border-slate-200 text-slate-700 rounded-xl py-3 font-semibold">Abbrechen</button>
+    </div>
+  </section>
+
+  <!-- ============ ERGEBNIS EINTRAGEN ============ -->
+  <section id="s-challenge-result" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('ranking')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900">Ergebnis eintragen</div>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Match</div>
+        <div class="flex items-center gap-3">
+          <div class="text-center flex-1">
+            <div id="resultPlayerA" class="w-14 h-14 mx-auto rounded-full bg-red-600 text-white flex items-center justify-center font-black text-sm">MD</div>
+            <div class="text-xs font-bold text-slate-900 mt-1">Marius D.</div>
+            <div class="text-[10px] text-slate-500">Forderer</div>
+          </div>
+          <div class="text-slate-400 font-bold">vs</div>
+          <div class="text-center flex-1">
+            <div id="resultPlayerB" class="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-red-100 to-red-200 text-red-800 flex items-center justify-center font-black text-sm">FH</div>
+            <div id="resultPlayerBName" class="text-xs font-bold text-slate-900 mt-1">Felix H.</div>
+            <div class="text-[10px] text-slate-500">Gefordert</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Sätze</div>
+        <div id="setRows" class="space-y-2">
+          <div class="flex items-center gap-2">
+            <div class="text-[11px] font-bold text-slate-500 w-10">Satz 1</div>
+            <input type="number" min="0" max="7" value="6" class="w-14 text-center border border-slate-200 rounded-lg py-1.5 font-bold" />
+            <span class="text-slate-400">:</span>
+            <input type="number" min="0" max="7" value="4" class="w-14 text-center border border-slate-200 rounded-lg py-1.5 font-bold" />
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="text-[11px] font-bold text-slate-500 w-10">Satz 2</div>
+            <input type="number" min="0" max="7" value="3" class="w-14 text-center border border-slate-200 rounded-lg py-1.5 font-bold" />
+            <span class="text-slate-400">:</span>
+            <input type="number" min="0" max="7" value="6" class="w-14 text-center border border-slate-200 rounded-lg py-1.5 font-bold" />
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="text-[11px] font-bold text-slate-500 w-10">MTB</div>
+            <input type="number" min="0" value="10" class="w-14 text-center border border-slate-200 rounded-lg py-1.5 font-bold" />
+            <span class="text-slate-400">:</span>
+            <input type="number" min="0" value="8" class="w-14 text-center border border-slate-200 rounded-lg py-1.5 font-bold" />
+          </div>
+        </div>
+        <div class="text-[11px] text-slate-500 mt-2">2 Gewinnsätze, bei 1:1 Match-Tiebreak bis 10.</div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Sieger</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="setWinner('A', this)" class="winner-btn border-2 border-red-600 bg-red-50 text-red-700 rounded-lg py-3 font-bold">Marius D.</button>
+          <button onclick="setWinner('B', this)" class="winner-btn border border-slate-200 text-slate-700 rounded-lg py-3 font-bold">Felix H.</button>
+        </div>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+        Nach Absenden sieht der Gegner das Ergebnis in der App. Widerspruch ist innerhalb von 48 h über den Admin möglich.
+      </div>
+
+      <button onclick="submitResult()" class="w-full primary rounded-xl py-3 font-semibold">Ergebnis speichern</button>
+    </div>
+  </section>
+
+  <!-- ============ ADMIN · RANGLISTE VERWALTEN ============ -->
+  <section id="s-admin-ranking" class="screen">
+    <header class="bg-white px-5 py-3 border-b border-slate-100 flex items-center gap-3">
+      <button onclick="go('ranking')" class="text-slate-500 text-xl">‹</button>
+      <div class="font-bold text-slate-900 flex-1">Rangliste verwalten</div>
+      <span class="text-[10px] uppercase tracking-wider bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Admin</span>
+    </header>
+    <div class="scroll px-5 py-4 space-y-4 fade pb-24">
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Kategorie</div>
+        <div class="flex gap-2">
+          <button onclick="switchRankingCat('herren', true)" class="cat-pill on">Herren</button>
+          <button onclick="switchRankingCat('damen',  true)" class="cat-pill off">Damen</button>
+          <button onclick="switchRankingCat('jugend', true)" class="cat-pill off">Jugend</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">Spielerliste sortieren</div>
+          <span class="text-[10px] text-slate-500">↑↓ = Position tauschen</span>
+        </div>
+        <div id="adminRankingList" class="space-y-1.5"></div>
+        <button onclick="showToast('Reihenfolge gespeichert ✓')" class="w-full mt-3 primary rounded-xl py-3 font-semibold">Reihenfolge speichern</button>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Aktive Forderungen eingreifen</div>
+        <div id="adminChallengesList" class="space-y-2"></div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div class="section-label mb-2">Saison-Optionen</div>
+        <button onclick="showToast('Neue Saison würde jetzt gestartet werden')" class="w-full bg-slate-100 border border-slate-200 text-slate-700 rounded-xl py-3 font-semibold text-sm">Neue Saison starten (Pyramide einfrieren)</button>
+        <div class="text-[11px] text-slate-500 mt-2">Hinweis: Standardmäßig gibt es keinen automatischen Reset. Admin kann eine neue Saison manuell starten.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TABBAR ============ -->
+  <nav id="tabbar" class="bg-white border-t border-slate-100 grid grid-cols-5 py-1.5">
+    <button onclick="go('home')" class="tab-btn flex flex-col items-center gap-0.5 py-1" data-tab="home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2h-4.5v-7h-5v7H5a2 2 0 01-2-2V9z"/></svg>
+      <span class="text-[10px] font-medium text-slate-500">Home</span>
+    </button>
+    <button onclick="go('events')" class="tab-btn flex flex-col items-center gap-0.5 py-1" data-tab="events">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <span class="text-[10px] font-medium text-slate-500">Termine</span>
+    </button>
+    <button onclick="go('ranking')" class="tab-btn flex flex-col items-center gap-0.5 py-1 relative" data-tab="ranking">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.8 6.2 20.9l1.1-6.5L2.6 9.8l6.5-.9L12 3z"/></svg>
+      <span class="text-[10px] font-medium text-slate-500">Rangliste</span>
+      <span id="rankingBadge" class="tab-badge hidden">1</span>
+    </button>
+    <button onclick="go('booking')" class="tab-btn flex flex-col items-center gap-0.5 py-1" data-tab="booking">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 12h18M12 5v14"/></svg>
+      <span class="text-[10px] font-medium text-slate-500">Platz</span>
+    </button>
+    <button onclick="go('members')" class="tab-btn flex flex-col items-center gap-0.5 py-1" data-tab="members">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <span class="text-[10px] font-medium text-slate-500">Mitglieder</span>
+    </button>
+  </nav>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+</div>
+
+<script>
+  // ====== SCREEN ROUTING ======
+  const screenMap = {
+    login: 's-login', home: 's-home', booking: 's-booking', 'book-slot': 's-book-slot',
+    'admin-block': 's-admin-block',
+    events: 's-events', 'event-detail': 's-event-detail',
+    'event-saisonauftakt': 's-event-saisonauftakt', 'event-vereinsmeisterschaft': 's-event-vereinsmeisterschaft',
+    members: 's-members', 'member-detail': 's-member-detail',
+    hours: 's-hours', profile: 's-profile',
+    'admin-hours': 's-admin-hours', 'admin-assign-hours': 's-admin-assign-hours',
+    'admin-create-event': 's-admin-create-event', 'admin-news': 's-admin-news',
+    'admin-create-member': 's-admin-create-member',
+    'team-edit': 's-team-edit',
+    ranking: 's-ranking', 'challenge-new': 's-challenge-new',
+    'challenge-result': 's-challenge-result', 'admin-ranking': 's-admin-ranking',
+    'bewirtung-new': 's-bewirtung-new', 'bewirtung-detail': 's-bewirtung-detail'
+  };
+  const tabMap = { home:'home', booking:'booking', events:'events', members:'members', ranking:'ranking' };
+
+  function go(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(screenMap[id]);
+    if (target) target.classList.add('active');
+    // Tabbar-Hervorhebung
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const tab = tabMap[id];
+    if (tab) {
+      const btn = document.querySelector('[data-tab="'+tab+'"]');
+      if (btn) btn.classList.add('active');
+    } else if (['admin-hours','admin-assign-hours','admin-create-event','admin-news','admin-create-member'].includes(id)) {
+      const btn = document.querySelector('[data-tab="home"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'event-detail' || id === 'event-saisonauftakt' || id === 'event-vereinsmeisterschaft') {
+      const btn = document.querySelector('[data-tab="events"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'member-detail' || id === 'team-edit') {
+      const btn = document.querySelector('[data-tab="members"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'hours') {
+      const btn = document.querySelector('[data-tab="home"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'book-slot' || id === 'admin-block') {
+      const btn = document.querySelector('[data-tab="booking"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'challenge-new' || id === 'challenge-result' || id === 'admin-ranking') {
+      const btn = document.querySelector('[data-tab="ranking"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'bewirtung-new' || id === 'bewirtung-detail') {
+      const btn = document.querySelector('[data-tab="events"]');
+      if (btn) btn.classList.add('active');
+    } else if (id === 'profile') {
+      // Profil hat keinen Tab mehr — keine Hervorhebung
+    }
+    // Hide tabbar on login
+    document.getElementById('tabbar').style.display = id === 'login' ? 'none' : 'grid';
+    // Scroll top
+    document.querySelectorAll('.scroll').forEach(s => s.scrollTop = 0);
+  }
+
+  // ====== ROLE SWITCHER ======
+  function setRole(role) {
+    document.body.setAttribute('data-role', role);
+    document.getElementById('roleMember').classList.toggle('on', role === 'member');
+    document.getElementById('roleMember').classList.toggle('off', role !== 'member');
+    document.getElementById('roleAdmin').classList.toggle('on', role === 'admin');
+    document.getElementById('roleAdmin').classList.toggle('off', role !== 'admin');
+    document.querySelectorAll('.adminOnly').forEach(el => el.style.display = role === 'admin' ? '' : 'none');
+    document.querySelectorAll('.memberOnly').forEach(el => el.style.display = role === 'member' ? '' : 'none');
+  }
+  document.getElementById('roleMember').onclick = () => setRole('member');
+  document.getElementById('roleAdmin').onclick = () => setRole('admin');
+
+  // ====== TOAST ======
+  let toastT;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ====== HOME: Mehr News ein-/ausklappen ======
+  function toggleMoreNews() {
+    const more = document.getElementById('newsListMore');
+    const btn  = document.getElementById('loadMoreNewsBtn');
+    if (!more || !btn) return;
+    const hidden = more.classList.contains('hidden');
+    more.classList.toggle('hidden', !hidden);
+    btn.textContent = hidden ? 'Weniger anzeigen' : 'Mehr laden';
+  }
+
+  // ====== ADMIN: Event anlegen – Typ-Umschalter ======
+  function setEvtType(type) {
+    const arbeit = document.getElementById('evtTypeArbeit');
+    const event  = document.getElementById('evtTypeEvent');
+    const hint   = document.getElementById('evtDurationHint');
+    if (!arbeit || !event) return;
+    if (type === 'arbeit') {
+      arbeit.className = 'border-2 rounded-lg py-2 text-xs font-bold flex flex-col items-center gap-1';
+      arbeit.setAttribute('style', 'border-color:#991b1b;background:#fee2e2;color:#991b1b;');
+      event.className  = 'border rounded-lg py-2 text-xs font-bold text-slate-600 border-slate-200 flex flex-col items-center gap-1';
+      event.setAttribute('style', '');
+      if (hint) hint.textContent = 'Wird Teilnehmern als Arbeitsstunden gutgeschrieben.';
+    } else {
+      event.className  = 'border-2 rounded-lg py-2 text-xs font-bold flex flex-col items-center gap-1';
+      event.setAttribute('style', 'border-color:#1e40af;background:#dbeafe;color:#1e40af;');
+      arbeit.className = 'border rounded-lg py-2 text-xs font-bold text-slate-600 border-slate-200 flex flex-col items-center gap-1';
+      arbeit.setAttribute('style', '');
+      if (hint) hint.textContent = 'Reine Dauer als Info – keine Stunden-Anrechnung.';
+    }
+  }
+
+  // ====== ADMIN: Event anlegen – Teilnahme ein/aus ======
+  function toggleRsvp() {
+    const cb  = document.getElementById('evtNeedsRsvp');
+    const wrap = document.getElementById('evtMaxWrap');
+    if (!cb || !wrap) return;
+    wrap.classList.toggle('hidden', !cb.checked);
+  }
+
+  // ====== MITGLIEDER-DATEN ======
+  const members = [
+    { id:1, name:'Anna Becker', team:'Damen I', avatar:'AB', hours:8.5 },
+    { id:2, name:'Daniel Fischer', team:'Herren II', avatar:'DF', hours:3.0 },
+    { id:3, name:'Elena Vogel', team:'Damen I', avatar:'EV', hours:10.0 },
+    { id:4, name:'Felix Hartmann', team:'Herren I', avatar:'FH', hours:2.0 },
+    { id:5, name:'Jana Richter', team:'Jugend U18', avatar:'JR', hours:4.5 },
+    { id:6, name:'Julia Klein', team:'Damen I', avatar:'JK', hours:6.0 },
+    { id:7, name:'Marius Deutsch', team:'Herren II', avatar:'MD', hours:4.5 },
+    { id:8, name:'Nina Wolf', team:'Damen I', avatar:'NW', hours:10.0 },
+    { id:9, name:'Peter Hofmann', team:'Herren II', avatar:'PH', hours:5.0 },
+    { id:10, name:'Sabrina Meier', team:'Damen I', avatar:'SM', hours:7.5 },
+    { id:11, name:'Thomas Bauer', team:'Herren I', avatar:'TB', hours:6.0 },
+    { id:12, name:'Timo Schulz', team:'Jugend U18', avatar:'TS', hours:1.0 }
+  ];
+
+  function renderMemberList() {
+    const isAdmin = document.body.getAttribute('data-role') === 'admin';
+    const host = document.getElementById('memberList');
+    host.innerHTML = members.map(m => `
+      <button onclick="go('member-detail')" class="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-left">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-xs font-black text-red-800 flex-shrink-0">${m.avatar}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-slate-900 truncate">${m.name}</div>
+          <div class="text-xs text-slate-500 flex items-center gap-2">
+            <span>${m.team}</span>
+            ${isAdmin ? `<span class="inline-block w-1 h-1 rounded-full bg-slate-300"></span>
+              <span class="font-semibold ${m.hours < 5 ? 'text-red-600' : 'text-green-700'}">${m.hours.toString().replace('.', ',')}/10 h</span>` : ''}
+          </div>
+        </div>
+        <span class="text-slate-300">›</span>
+      </button>
+    `).join('');
+  }
+
+  function renderAdminHoursList() {
+    const host = document.getElementById('adminHoursList');
+    if (!host) return;
+    const sorted = [...members].sort((a,b) => a.hours - b.hours);
+    host.innerHTML = sorted.map(m => {
+      const pct = Math.min(100, (m.hours / 10) * 100);
+      const done = m.hours >= 10;
+      return `
+        <button onclick="go('member-detail')" class="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 text-left">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-[11px] font-black text-red-800 flex-shrink-0">${m.avatar}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-slate-900 truncate">${m.name}</div>
+            <div class="text-xs text-slate-500">${m.team}</div>
+            <div class="w-full bg-slate-100 rounded-full h-1 mt-1.5 overflow-hidden">
+              <div class="h-1 ${done ? 'bg-green-500' : 'progress-bar'}" style="width:${pct}%"></div>
+            </div>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="text-sm font-black ${done ? 'text-green-600' : 'brand-text'}">${m.hours.toString().replace('.', ',')}</div>
+            <div class="text-[10px] text-slate-400">/ 10 h</div>
+          </div>
+        </button>
+      `;
+    }).join('');
+  }
+
+  // ====== MANNSCHAFTEN ======
+  const teams = [
+    { name:'Herren I',   league:'Bezirksliga',      captain:'Thomas Bauer',  memberIds:[4,7,9,11] },
+    { name:'Herren II',  league:'Kreisklasse 1',    captain:'Peter Hofmann', memberIds:[2,7,9] },
+    { name:'Damen I',    league:'Kreisliga',        captain:'Elena Vogel',   memberIds:[1,3,6,8,10] },
+    { name:'Jugend U18', league:'Bezirksklasse',    captain:'Jana Richter',  memberIds:[5,12] }
+  ];
+
+  function renderTeamList() {
+    const isAdmin = document.body.getAttribute('data-role') === 'admin';
+    const host = document.getElementById('teamList');
+    if (!host) return;
+    host.innerHTML = teams.map(t => `
+      <div onclick="openTeam('${t.name}')" class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 cursor-pointer hover:border-red-200">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="font-bold text-slate-900">${t.name}</div>
+            <div class="text-xs text-slate-500 mt-0.5">${t.league} · MF: ${t.captain}</div>
+          </div>
+          <span class="text-slate-300">›</span>
+        </div>
+        <div class="flex items-center justify-between mt-3">
+          <div class="flex -space-x-1.5">
+            ${t.memberIds.slice(0,5).map(id => {
+              const m = members.find(x => x.id === id);
+              return m ? `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-red-100 to-red-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-red-800">${m.avatar}</div>` : '';
+            }).join('')}
+          </div>
+          <div class="text-xs font-semibold text-slate-600">${t.memberIds.length} Spieler</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  let currentTeam = teams[0];
+  function openTeam(name) {
+    currentTeam = teams.find(t => t.name === name) || teams[0];
+    document.getElementById('teamDetailTitle').textContent = currentTeam.name;
+    document.getElementById('teamDetailName').textContent = currentTeam.name;
+    renderTeamRoster();
+    go('team-edit');
+  }
+  function renderTeamRoster() {
+    const host = document.getElementById('teamRoster');
+    if (!host) return;
+    const isAdmin = document.body.getAttribute('data-role') === 'admin';
+    host.innerHTML = currentTeam.memberIds.map(id => {
+      const m = members.find(x => x.id === id);
+      if (!m) return '';
+      return `
+        <div class="px-4 py-3 flex items-center gap-3 border-b border-slate-100 last:border-0">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-[11px] font-black text-red-800 flex-shrink-0">${m.avatar}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-slate-900 truncate">${m.name}</div>
+            <div class="text-xs text-slate-500">${m === currentTeam.memberIds[0] ? 'Mannschaftsführer' : 'Spieler'}</div>
+          </div>
+          ${isAdmin ? `<button onclick="event.stopPropagation(); showToast('Aus Mannschaft entfernt')" class="text-xs text-red-600 font-semibold">Entfernen</button>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function switchMembersTab(tab) {
+    document.getElementById('membersViewAll').classList.toggle('hidden', tab !== 'all');
+    document.getElementById('membersViewTeams').classList.toggle('hidden', tab !== 'teams');
+    document.getElementById('tabAll').className = tab === 'all'
+      ? 'px-3 py-1.5 rounded-full bg-white text-red-800 text-xs font-bold'
+      : 'px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-semibold';
+    document.getElementById('tabTeams').className = tab === 'teams'
+      ? 'px-3 py-1.5 rounded-full bg-white text-red-800 text-xs font-bold'
+      : 'px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-semibold';
+    if (tab === 'teams') renderTeamList();
+  }
+
+  // ====== PLATZBUCHUNG ======
+  function renderCourtGrid() {
+    const host = document.getElementById('courtGridBody');
+    if (!host) return;
+    const times = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
+    // Demo-Belegung: verschiedene Buchungstypen pro Slot
+    const booked   = new Set(['09:00:2','10:00:5','14:00:3','15:00:1','16:00:6','17:00:4']);             // private Buchungen anderer
+    const training = new Set(['18:00:1','18:00:2','19:00:1','19:00:2']);                                   // Mannschaftstraining
+    const hobby    = new Set(['19:00:3','19:00:4','20:00:3','20:00:4']);                                    // Hobby-Training Dienstag 19–20:30
+    const match    = new Set(['14:00:5','14:00:6','15:00:5','15:00:6','16:00:5','16:00:6']);              // Mannschaftsspiel (Samstag-artig)
+    const own      = new Set(['18:00:3']);
+    let html = '';
+    times.forEach(t => {
+      html += `<div class="court-cell time">${t}</div>`;
+      for (let c = 1; c <= 6; c++) {
+        const key = `${t}:${c}`;
+        if (own.has(key))           html += `<div class="court-cell own" onclick="showToast('Deine Buchung · ${t} · Platz ${c}')">★</div>`;
+        else if (training.has(key)) html += `<div class="court-cell training" onclick="showToast('Training Herren I · ${t} · Platz ${c}')">T</div>`;
+        else if (hobby.has(key))    html += `<div class="court-cell hobby" onclick="showToast('Hobby-Training · ${t} · Platz ${c} · dienstags 19–20:30')">H</div>`;
+        else if (match.has(key))    html += `<div class="court-cell match" onclick="showToast('Mannschaftsspiel · ${t} · Platz ${c}')">M</div>`;
+        else if (booked.has(key))   html += `<div class="court-cell booked" onclick="showToast('Privat belegt · ${t} · Platz ${c}')">●</div>`;
+        else                        html += `<div class="court-cell" onclick="openBooking('${t}', ${c})">+</div>`;
+      }
+    });
+    host.innerHTML = html;
+    // Plus-Zeichen dezent
+    host.querySelectorAll('.court-cell:not(.time):not(.booked):not(.training):not(.hobby):not(.match):not(.own)').forEach(el => {
+      el.style.color = '#cbd5e1';
+      el.style.fontWeight = '400';
+    });
+  }
+  function openBooking(time, court) {
+    const isAdmin = document.body.getAttribute('data-role') === 'admin';
+    document.getElementById('slotTime').textContent = time;
+    document.getElementById('slotCourt').textContent = court;
+    // Admin-Auswahl (Privat / Training / Mannschaftsspiel) im Buchungsdialog freischalten
+    const adminOpts = document.getElementById('adminBookingOptions');
+    if (adminOpts) adminOpts.style.display = isAdmin ? '' : 'none';
+    const privateHint = document.getElementById('memberBookingHint');
+    if (privateHint) privateHint.style.display = isAdmin ? 'none' : '';
+    go('book-slot');
+  }
+  function openAdminBlock(type) {
+    setBlockType(type);
+    go('admin-block');
+  }
+  function setBlockType(type) {
+    document.getElementById('adminBlockTitle').textContent = type === 'training' ? 'Training eintragen' : 'Mannschaftsspiel eintragen';
+    const t = document.getElementById('blockTypeTraining');
+    const m = document.getElementById('blockTypeMatch');
+    if (!t || !m) return;
+    if (type === 'training') {
+      t.className = 'border-2 border-slate-400 bg-slate-100 text-slate-800 rounded-lg py-2 text-sm font-bold';
+      m.className = 'border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold';
+    } else {
+      m.className = 'border-2 border-slate-700 bg-slate-800 text-white rounded-lg py-2 text-sm font-bold';
+      t.className = 'border border-slate-200 text-slate-600 rounded-lg py-2 text-sm font-bold';
+    }
+  }
+
+  // ====== RANGLISTE / PYRAMIDE ======
+  // Eigener User (Klickdummy)
+  const MY_ID = 7; // Marius Deutsch
+  const MY_CAT = 'herren'; // in welcher Kategorie ist der User aktiv
+
+  // Pyramiden-Daten: Array von Spieler-Objekten in Reihenfolge (Index 0 = Position 1)
+  // Row n hat n Spieler. Positionen: 1 / 2A 2B / 3A 3B 3C / 4A 4B 4C 4D / 5A..5E ...
+  const pyramids = {
+    herren: [
+      // Reihe 1 — 1 Spieler
+      { id:11,  name:'Thomas Bauer',        avatar:'TB' },
+      // Reihe 2 — 2
+      { id:4,   name:'Felix Hartmann',      avatar:'FH' },
+      { id:9,   name:'Peter Hofmann',       avatar:'PH' },
+      // Reihe 3 — 3
+      { id:2,   name:'Daniel Fischer',      avatar:'DF' },
+      { id:101, name:'Lukas Keller',        avatar:'LK' },
+      { id:102, name:'Sebastian Schmitt',   avatar:'SS' },
+      // Reihe 4 — 4
+      { id:103, name:'Jonas Braun',         avatar:'JB' },
+      { id:104, name:'Alexander Weiß',      avatar:'AW' },
+      { id:105, name:'Christian Berg',      avatar:'CB' },
+      { id:106, name:'Andreas Lehmann',     avatar:'AL' },
+      // Reihe 5 — 5
+      { id:107, name:'Tobias Fuchs',        avatar:'TF' },
+      { id:108, name:'Michael Schmidt',     avatar:'MS' },
+      { id:112, name:'Tim Walter',          avatar:'TW' },
+      { id:109, name:'Florian Klein',       avatar:'FK' },
+      { id:110, name:'Philipp Gerber',      avatar:'PG' },
+      // Reihe 6 — 6  (Marius ist hier auf 6B = Position 17)
+      { id:111, name:'Jakob Winter',        avatar:'JW' },
+      { id:7,   name:'Marius Deutsch',      avatar:'MD' }, // 6B ← ich (Position 17)
+      { id:113, name:'Benedikt Ott',        avatar:'BO' },
+      { id:114, name:'Nico Roth',           avatar:'NR' },
+      { id:115, name:'Matthias Zimmer',     avatar:'MZ' },
+      { id:116, name:'Johannes Reich',      avatar:'JR' },
+      // Reihe 7 — 7
+      { id:117, name:'Patrick Stein',       avatar:'PS' },
+      { id:118, name:'Simon Schröder',      avatar:'SS' },
+      { id:119, name:'Niklas Brandt',       avatar:'NB' },
+      { id:120, name:'David Kern',          avatar:'DK' },
+      { id:121, name:'Mark Huber',          avatar:'MH' },
+      { id:122, name:'Maximilian Sauer',    avatar:'MS' },
+      { id:123, name:'Fabian Groß',         avatar:'FG' },
+      // Reihe 8 — 8
+      { id:124, name:'Dominik Becker',      avatar:'DB' },
+      { id:125, name:'Oliver Jäger',        avatar:'OJ' },
+      { id:126, name:'Martin Kuhn',         avatar:'MK' },
+      { id:127, name:'Hendrik Vogt',        avatar:'HV' },
+      { id:128, name:'Julian Krüger',       avatar:'JK' },
+      { id:129, name:'Moritz Albrecht',     avatar:'MA' },
+      { id:130, name:'Jan Wiese',           avatar:'JW' },
+      { id:131, name:'Leon Pfeiffer',       avatar:'LP' },
+    ],
+    damen: [
+      { id:3,  name:'Elena Vogel',     avatar:'EV' },
+      { id:1,  name:'Anna Becker',     avatar:'AB' },
+      { id:8,  name:'Nina Wolf',       avatar:'NW' },
+      { id:10, name:'Sabrina Meier',   avatar:'SM' },
+      { id:6,  name:'Julia Klein',     avatar:'JK' },
+      { id:201,name:'Lea Sommer',      avatar:'LS' },
+    ],
+    jugend: [
+      { id:5,  name:'Jana Richter',    avatar:'JR' },
+      { id:12, name:'Timo Schulz',     avatar:'TS' },
+      { id:301,name:'Max Vogt',        avatar:'MV' },
+    ]
+  };
+
+  // Forderungen – Status: open / extended / done / expired / disputed
+  const challenges = [
+    // An den User gerichtete Forderung (zeigt Badge) — Benedikt Ott (6C, id 113) fordert Marius (6B, Pos. 17)
+    { id:'c1', cat:'herren', from:113, to:7,  created:'2026-04-18', deadline:'2026-05-02', extended:false, status:'open', matchDate:'2026-04-26', result:null },
+    // Laufende Forderungen in der Herren-Kategorie
+    { id:'c2', cat:'herren', from:9,   to:11, created:'2026-04-15', deadline:'2026-04-29', extended:false, status:'open', matchDate:null, result:null },
+    { id:'c5', cat:'herren', from:117, to:111,created:'2026-04-19', deadline:'2026-05-03', extended:false, status:'open', matchDate:null, result:null },
+    { id:'c6', cat:'herren', from:130, to:124,created:'2026-04-14', deadline:'2026-04-28', extended:true,  status:'open', matchDate:'2026-04-27', result:null },
+    // Eine Damen-Forderung
+    { id:'c3', cat:'damen',  from:8,   to:3,  created:'2026-04-10', deadline:'2026-04-24', extended:true,  status:'open', matchDate:null, result:null },
+    // Abgeschlossene Matches
+    { id:'c4', cat:'herren', from:4, to:11,   created:'2026-03-20', deadline:'2026-04-03', extended:false, status:'done',
+      result:{ winner:4, sets:[[6,3],[4,6],[10,7]] } },
+    { id:'c7', cat:'herren', from:108, to:104,created:'2026-03-25', deadline:'2026-04-08', extended:false, status:'done',
+      result:{ winner:104, sets:[[3,6],[6,4],[6,2]] } },
+    { id:'c8', cat:'herren', from:122, to:117,created:'2026-04-02', deadline:'2026-04-16', extended:false, status:'done',
+      result:{ winner:117, sets:[[6,2],[6,4]] } }
+  ];
+
+  let currentCat = 'herren';
+  let currentSub = 'pyramide';
+  let challengeTargetIdx = null;
+
+  // ===== Positions-Mathematik =====
+  // Wandelt einen flachen Index (0-basiert) in { row, col } (1-basiert row, 0-basiert col)
+  function pyrPos(i) {
+    let row = 1, startIdx = 0;
+    while (startIdx + row <= i) { startIdx += row; row++; }
+    return { row, col: i - startIdx, startIdx };
+  }
+  function pyrLabel(i) {
+    // Position in der Rangliste (1-basiert): 1, 2, 3, ...
+    return String(i + 1);
+  }
+  function pyrFindIndexById(cat, id) {
+    return pyramids[cat].findIndex(p => p.id === id);
+  }
+  // Prüfe: Darf Spieler an Index fromIdx den Spieler an Index toIdx fordern?
+  // Regel: links in eigener Reihe + volle Reihe darüber in Richtung rechts
+  //        (also alle Positionen in Reihe-1 mit Spalte >= eigene Spalte).
+  //        Reihe (row-1) hat (row-1) Spieler → Spalten 0..row-2
+  function canChallenge(cat, fromIdx, toIdx) {
+    if (fromIdx === toIdx) return false;
+    const from = pyrPos(fromIdx);
+    const to   = pyrPos(toIdx);
+    // Regel 1: links in eigener Reihe
+    if (to.row === from.row && to.col < from.col) return true;
+    // Regel 2: volle Reihe darüber in Richtung rechts (Spalte >= eigene Spalte, und Position existiert)
+    if (to.row === from.row - 1 && to.col >= from.col && to.col < from.row - 1) return true;
+    return false;
+  }
+
+  // ===== Render: Pyramide =====
+  function renderPyramid() {
+    const host = document.getElementById('pyramidHost');
+    if (!host) return;
+    const players = pyramids[currentCat];
+    // Compact-Modus ab mehr als 21 Spielern (= mehr als 6 volle Reihen)
+    host.classList.toggle('compact', players.length > 21);
+    const myIdx = pyrFindIndexById(currentCat, MY_ID);
+
+    // Reihen aufbauen
+    let html = '';
+    let i = 0, row = 1;
+    while (i < players.length) {
+      html += '<div class="pyramid-row">';
+      for (let c = 0; c < row && i < players.length; c++, i++) {
+        const p = players[i];
+        const isMe = i === myIdx;
+        const isChampion = i === 0;
+        const label = pyrLabel(i);
+        const targetable = myIdx >= 0 && !isMe && canChallenge(currentCat, myIdx, i);
+
+        const cls = [
+          'player-tile',
+          isMe ? 'own' : '',
+          isChampion ? 'champion' : '',
+          targetable ? 'targetable' : ''
+        ].filter(Boolean).join(' ');
+
+        const crown = isChampion ? '<span class="crown">👑</span>' : '';
+        const clickHandler = targetable
+          ? `onclick="openChallenge(${i})"`
+          : (isMe ? 'onclick="showMyInfo()"' : `onclick="showPlayerInfo(${i})"`);
+
+        html += `
+          <div class="${cls}" ${clickHandler} title="${p.name} · Position ${label}">
+            ${crown}
+            <div class="avatar">${p.avatar}</div>
+            <div class="pos-label">${label}</div>
+            <div class="name-line">${p.name.split(' ')[0]}</div>
+          </div>
+        `;
+      }
+      html += '</div>';
+      row++;
+    }
+    host.innerHTML = html;
+  }
+
+  function renderActiveChallenges() {
+    const host = document.getElementById('activeChallengesHost');
+    const empty = document.getElementById('emptyChallenges');
+    if (!host) return;
+    const list = challenges.filter(c => c.cat === currentCat && c.status === 'open');
+    if (list.length === 0) {
+      host.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    host.innerHTML = list.map(c => {
+      const from = pyramids[c.cat].find(p => p.id === c.from);
+      const to   = pyramids[c.cat].find(p => p.id === c.to);
+      if (!from || !to) return '';
+      const fromLabel = pyrLabel(pyrFindIndexById(c.cat, c.from));
+      const toLabel   = pyrLabel(pyrFindIndexById(c.cat, c.to));
+      const isMine = c.from === MY_ID || c.to === MY_ID;
+      const canEdit = isMine; // Ergebnis nur von Beteiligten eintragbar (Admin darf in Admin-Bereich)
+      const matchDateVal = c.matchDate || '';
+      const dateLabel = c.matchDate ? formatDateLong(c.matchDate) : 'Termin offen';
+      return `
+        <div class="bg-white rounded-xl border ${isMine ? 'border-red-300' : 'border-slate-100'} shadow-sm overflow-hidden">
+          <!-- Kopfzeile: Spieler gegen Spieler -->
+          <div class="p-3 flex items-center gap-3">
+            <div class="flex items-center gap-1">
+              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-[10px] font-black text-red-800">${from.avatar}</div>
+              <span class="text-[10px] font-bold text-slate-500">${fromLabel}</span>
+            </div>
+            <div class="text-slate-300 font-bold">vs</div>
+            <div class="flex items-center gap-1">
+              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-[10px] font-black text-red-800">${to.avatar}</div>
+              <span class="text-[10px] font-bold text-slate-500">${toLabel}</span>
+            </div>
+            <div class="flex-1 ml-1 min-w-0">
+              <div class="text-sm font-bold text-slate-900 truncate">${from.name.split(' ')[0]} fordert ${to.name.split(' ')[0]}</div>
+              <div class="text-[11px] text-slate-500">Frist: ${c.deadline}${c.extended ? ' · verlängert' : ''}</div>
+            </div>
+            ${isMine ? '<span class="text-[10px] font-bold text-red-700 bg-red-100 rounded-full px-2 py-0.5 flex-shrink-0">Dein Match</span>' : ''}
+          </div>
+
+          <!-- Details: Termin + Ergebnis -->
+          <div class="border-t border-slate-100 bg-slate-50 p-3 space-y-3">
+            <!-- Termin -->
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] uppercase tracking-wider font-bold text-slate-500 w-16 flex-shrink-0">Termin</span>
+              ${canEdit
+                ? `<input type="date" value="${matchDateVal}" onchange="setMatchDate('${c.id}', this.value)" class="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white" />`
+                : `<span class="flex-1 text-xs text-slate-700">${dateLabel}</span>`
+              }
+              ${!isMine && !c.extended ? `<button onclick="extendChallenge('${c.id}')" class="text-[10px] font-bold bg-white border border-slate-200 rounded px-2 py-1 text-slate-600">+14 T</button>` : ''}
+            </div>
+
+            <!-- Ergebnis -->
+            ${canEdit ? `
+            <div>
+              <div class="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Ergebnis eintragen</div>
+              <div class="space-y-1.5" id="sets-${c.id}">
+                ${[1,2].map(n => `
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-500 w-16 flex-shrink-0">Satz ${n}</span>
+                    <input type="number" min="0" max="7" placeholder="${from.name.split(' ')[0]}" class="flex-1 min-w-0 border border-slate-200 rounded px-2 py-1 text-sm text-center bg-white" data-set="${n}" data-side="from" />
+                    <span class="text-slate-400">:</span>
+                    <input type="number" min="0" max="7" placeholder="${to.name.split(' ')[0]}" class="flex-1 min-w-0 border border-slate-200 rounded px-2 py-1 text-sm text-center bg-white" data-set="${n}" data-side="to" />
+                  </div>
+                `).join('')}
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] text-slate-500 w-16 flex-shrink-0">M-TB</span>
+                  <input type="number" min="0" placeholder="${from.name.split(' ')[0]}" class="flex-1 min-w-0 border border-slate-200 rounded px-2 py-1 text-sm text-center bg-white" data-set="3" data-side="from" />
+                  <span class="text-slate-400">:</span>
+                  <input type="number" min="0" placeholder="${to.name.split(' ')[0]}" class="flex-1 min-w-0 border border-slate-200 rounded px-2 py-1 text-sm text-center bg-white" data-set="3" data-side="to" />
+                </div>
+              </div>
+              <div class="flex gap-2 mt-2">
+                <button onclick="saveMatchResult('${c.id}')" class="flex-1 primary rounded-lg py-2 text-xs font-bold">Ergebnis speichern</button>
+              </div>
+              <div class="text-[10px] text-slate-400 mt-1">Satz 1 &amp; 2: reguläre Sätze (6:0–6:4, 7:5, 7:6). M-TB = Match-Tiebreak (10 Punkte, 2 Vorsprung). Match wandert nach Speichern in „Ergebnisse".</div>
+            </div>
+            ` : `
+            <div class="text-[11px] text-slate-500">Nur die beiden Spieler können das Ergebnis eintragen.</div>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ====== Forderungs-Termin setzen (inline in Forderungen-Tab) ======
+  function setMatchDate(cid, value) {
+    const c = challenges.find(x => x.id === cid);
+    if (!c) return;
+    c.matchDate = value || null;
+    showToast(value ? ('Termin gespeichert · ' + formatDateLong(value)) : 'Termin entfernt');
+  }
+
+  // ====== Tennis-Regel-Validierung ======
+  // Gültiger regulärer Satz: 6:0, 6:1, 6:2, 6:3, 6:4, 7:5, 7:6 (und gespiegelt)
+  function isValidRegularSet(a, b) {
+    if (a === b) return false;
+    const hi = Math.max(a, b), lo = Math.min(a, b);
+    if (hi === 6 && lo >= 0 && lo <= 4) return true;
+    if (hi === 7 && (lo === 5 || lo === 6)) return true;
+    return false;
+  }
+  // Match-Tiebreak: Sieger ≥ 10, Differenz ≥ 2
+  function isValidMatchTiebreak(a, b) {
+    if (a === b) return false;
+    const hi = Math.max(a, b), lo = Math.min(a, b);
+    return hi >= 10 && (hi - lo) >= 2;
+  }
+
+  // ====== Ergebnis inline speichern → Match wandert in Ergebnisse ======
+  function saveMatchResult(cid) {
+    const c = challenges.find(x => x.id === cid);
+    if (!c) return;
+    const wrap = document.getElementById('sets-' + cid);
+    if (!wrap) return;
+    const sets = [];
+    for (let n = 1; n <= 3; n++) {
+      const f = wrap.querySelector(`input[data-set="${n}"][data-side="from"]`);
+      const t = wrap.querySelector(`input[data-set="${n}"][data-side="to"]`);
+      const fv = parseInt(f && f.value !== '' ? f.value : '', 10);
+      const tv = parseInt(t && t.value !== '' ? t.value : '', 10);
+      const hasF = f && f.value !== '' && !isNaN(fv);
+      const hasT = t && t.value !== '' && !isNaN(tv);
+      if (hasF && hasT) {
+        sets.push({ n, a: fv, b: tv });
+      } else if (hasF || hasT) {
+        showToast(n === 3 ? 'Match-Tiebreak: beide Punkte eintragen' : 'Satz ' + n + ': beide Spiele eintragen');
+        return;
+      }
+    }
+    if (sets.length < 2) {
+      showToast('Mindestens 2 Sätze eintragen');
+      return;
+    }
+    // Tennis-Regeln prüfen
+    for (const s of sets) {
+      if (s.n === 1 || s.n === 2) {
+        if (!isValidRegularSet(s.a, s.b)) {
+          showToast('Satz ' + s.n + ' (' + s.a + ':' + s.b + ') ungültig · erlaubt: 6:0–6:4, 7:5, 7:6');
+          return;
+        }
+      } else if (s.n === 3) {
+        if (!isValidMatchTiebreak(s.a, s.b)) {
+          showToast('Match-Tiebreak (' + s.a + ':' + s.b + ') ungültig · min. 10 mit 2 Punkten Vorsprung');
+          return;
+        }
+      }
+    }
+    // Gewinner bestimmen
+    let fromSets = 0, toSets = 0;
+    sets.forEach(s => { if (s.a > s.b) fromSets++; else if (s.b > s.a) toSets++; });
+    if (fromSets < 2 && toSets < 2) {
+      showToast('Kein Gewinner · 2 Satz-Siege nötig');
+      return;
+    }
+    // Match-Tiebreak nur zulässig, wenn Sätze 1 & 2 geteilt wurden (1:1)
+    if (sets.length === 3) {
+      const firstTwo = sets.slice(0, 2);
+      let f2 = 0, t2 = 0;
+      firstTwo.forEach(s => { if (s.a > s.b) f2++; else if (s.b > s.a) t2++; });
+      if (!(f2 === 1 && t2 === 1)) {
+        showToast('Match-Tiebreak nur bei Satzgleichstand 1:1');
+        return;
+      }
+    }
+    // Sets für Speicherung im alten Tupel-Format ablegen
+    const sigSets = sets.map(s => [s.a, s.b]);
+    const winner = fromSets > toSets ? c.from : c.to;
+    c.result = { winner, sets: sigSets };
+    c.status = 'done';
+
+    // Pyramiden-Tausch bei Herausforderer-Sieg
+    if (winner === c.from) {
+      const arr = pyramids[c.cat];
+      const fromIdx = arr.findIndex(p => p.id === c.from);
+      const toIdx   = arr.findIndex(p => p.id === c.to);
+      if (fromIdx >= 0 && toIdx >= 0) {
+        [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
+      }
+    }
+
+    renderActiveChallenges();
+    renderResults();
+    renderPyramid();
+    updateRankingBadges();
+    // In den Ergebnisse-Tab wechseln, damit der User die Verschiebung sieht
+    switchRankingSub('ergebnisse');
+    showToast('Ergebnis gespeichert · Match in Ergebnisse verschoben ✓');
+  }
+
+  function renderResults() {
+    const host = document.getElementById('resultsHost');
+    if (!host) return;
+    const list = challenges.filter(c => c.cat === currentCat && c.status === 'done');
+    if (list.length === 0) {
+      host.innerHTML = `<div class="bg-white rounded-xl p-6 text-center border border-slate-100">
+        <div class="text-3xl mb-2">🏆</div>
+        <div class="text-sm font-semibold text-slate-700">Noch keine Ergebnisse in dieser Saison</div>
+      </div>`;
+      return;
+    }
+    host.innerHTML = list.map(c => {
+      const from = pyramids[c.cat].find(p => p.id === c.from);
+      const to   = pyramids[c.cat].find(p => p.id === c.to);
+      if (!from || !to) return '';
+      const winner = c.result.winner;
+      const setsStr = c.result.sets.map(s => `${s[0]}:${s[1]}`).join(', ');
+      const fromWon = winner === from.id;
+      const toWon   = winner === to.id;
+      return `
+        <div class="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+          <div class="grid items-center gap-2" style="grid-template-columns: 1fr auto 1fr;">
+            <!-- Spieler links -->
+            <div class="flex items-center gap-2 min-w-0 ${fromWon ? '' : 'opacity-60'}">
+              <div class="w-9 h-9 flex-shrink-0 rounded-full ${fromWon ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center text-[10px] font-black">${from.avatar}</div>
+              <div class="text-xs font-bold text-slate-700 truncate">${from.name.split(' ')[0]}${fromWon ? ' <span class=\"text-green-600\">✓</span>' : ''}</div>
+            </div>
+            <!-- Mitte: Satz-Ergebnis -->
+            <div class="text-center px-2">
+              <div class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">${c.created}</div>
+              <div class="text-sm font-black text-slate-900 tabular-nums whitespace-nowrap">${setsStr}</div>
+            </div>
+            <!-- Spieler rechts -->
+            <div class="flex items-center gap-2 min-w-0 justify-end ${toWon ? '' : 'opacity-60'}">
+              <div class="text-xs font-bold text-slate-700 truncate text-right">${toWon ? '<span class=\"text-green-600\">✓</span> ' : ''}${to.name.split(' ')[0]}</div>
+              <div class="w-9 h-9 flex-shrink-0 rounded-full ${toWon ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center text-[10px] font-black">${to.avatar}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderAdminRankingList() {
+    const host = document.getElementById('adminRankingList');
+    if (!host) return;
+    const players = pyramids[currentCat];
+    host.innerHTML = players.map((p, i) => `
+      <div class="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+        <div class="w-6 text-center text-[11px] font-black text-slate-500">${pyrLabel(i)}</div>
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-[10px] font-black text-red-800">${p.avatar}</div>
+        <div class="flex-1 text-sm font-semibold text-slate-900 truncate">${p.name}</div>
+        <button onclick="adminMovePlayer(${i}, -1)" class="w-7 h-7 bg-white border border-slate-200 rounded text-slate-600 text-sm">↑</button>
+        <button onclick="adminMovePlayer(${i}, 1)" class="w-7 h-7 bg-white border border-slate-200 rounded text-slate-600 text-sm">↓</button>
+        <button onclick="showToast('Spieler entfernt (Demo)')" class="w-7 h-7 bg-white border border-slate-200 rounded text-red-600 text-sm">×</button>
+      </div>
+    `).join('');
+  }
+
+  function renderAdminChallengesList() {
+    const host = document.getElementById('adminChallengesList');
+    if (!host) return;
+    const list = challenges.filter(c => c.cat === currentCat && c.status === 'open');
+    if (list.length === 0) {
+      host.innerHTML = `<div class="text-sm text-slate-500 text-center py-4">Keine offenen Forderungen</div>`;
+      return;
+    }
+    host.innerHTML = list.map(c => {
+      const from = pyramids[c.cat].find(p => p.id === c.from);
+      const to   = pyramids[c.cat].find(p => p.id === c.to);
+      if (!from || !to) return '';
+      return `
+        <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+          <div class="text-sm font-semibold text-slate-900">${from.name} → ${to.name}</div>
+          <div class="text-xs text-slate-500 mb-2">Frist ${c.deadline}${c.extended ? ' · verlängert' : ''}</div>
+          <div class="flex gap-2">
+            <button onclick="showToast('Forderung aufgelöst ✓')" class="flex-1 bg-white border border-slate-300 text-slate-700 rounded text-xs font-bold py-1.5">Auflösen</button>
+            <button onclick="showToast('Frist +14 Tage ✓')" class="flex-1 bg-white border border-slate-300 text-slate-700 rounded text-xs font-bold py-1.5">+14 Tage</button>
+            <button onclick="showToast('Positionen getauscht ✓')" class="flex-1 brand-bg text-white rounded text-xs font-bold py-1.5">Manuell werten</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function adminMovePlayer(idx, dir) {
+    const arr = pyramids[currentCat];
+    const target = idx + dir;
+    if (target < 0 || target >= arr.length) return;
+    [arr[idx], arr[target]] = [arr[target], arr[idx]];
+    renderAdminRankingList();
+    renderPyramid();
+  }
+
+  // ===== Interaktionen =====
+  function switchRankingCat(cat, fromAdmin) {
+    currentCat = cat;
+    ['catHerren','catDamen','catJugend'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      const on = id.toLowerCase().includes(cat);
+      btn.classList.toggle('on', on);
+      btn.classList.toggle('off', !on);
+    });
+    renderPyramid();
+    renderActiveChallenges();
+    renderResults();
+    if (fromAdmin) renderAdminRankingList();
+    renderAdminChallengesList();
+    updateRankingBadges();
+  }
+
+  function switchRankingSub(sub) {
+    currentSub = sub;
+    document.getElementById('subPyramide').classList.toggle('on', sub === 'pyramide');
+    document.getElementById('subForderungen').classList.toggle('on', sub === 'forderungen');
+    document.getElementById('subErgebnisse').classList.toggle('on', sub === 'ergebnisse');
+    document.getElementById('rankingViewPyramide').classList.toggle('hidden', sub !== 'pyramide');
+    document.getElementById('rankingViewForderungen').classList.toggle('hidden', sub !== 'forderungen');
+    document.getElementById('rankingViewErgebnisse').classList.toggle('hidden', sub !== 'ergebnisse');
+    if (sub === 'forderungen') renderActiveChallenges();
+    if (sub === 'ergebnisse') renderResults();
+  }
+
+  function openChallenge(idx) {
+    challengeTargetIdx = idx;
+    const p = pyramids[currentCat][idx];
+    document.getElementById('challengeTarget').textContent = p.name;
+    document.getElementById('challengeMeta').textContent = 'Position ' + pyrLabel(idx) + ' · ' + currentCat.charAt(0).toUpperCase() + currentCat.slice(1);
+    go('challenge-new');
+  }
+
+  function submitChallenge() {
+    if (challengeTargetIdx === null) { showToast('Kein Ziel gewählt'); return; }
+    const p = pyramids[currentCat][challengeTargetIdx];
+    // Demo: neue Forderung anlegen
+    const newId = 'c' + (challenges.length + 1);
+    challenges.push({
+      id: newId, cat: currentCat, from: MY_ID, to: p.id,
+      created: '2026-04-21', deadline: '2026-05-05',
+      extended: false, status: 'open', matchDate: null, result: null
+    });
+    challengeTargetIdx = null;
+    go('ranking');
+    showToast('Forderung gesendet · E-Mail an ' + p.name.split(' ')[0] + ' ✓');
+    renderPyramid();
+    renderActiveChallenges();
+    updateRankingBadges();
+  }
+
+  function extendChallenge(cid) {
+    const c = challenges.find(x => x.id === cid);
+    if (!c) return;
+    c.extended = true;
+    c.deadline = '2026-05-19'; // +14 Tage Demo
+    renderActiveChallenges();
+    showToast('Frist um 14 Tage verlängert ✓');
+  }
+
+  function setWinner(which, btn) {
+    document.querySelectorAll('.winner-btn').forEach(b => {
+      b.className = 'winner-btn border border-slate-200 text-slate-700 rounded-lg py-3 font-bold';
+    });
+    btn.className = 'winner-btn border-2 border-red-600 bg-red-50 text-red-700 rounded-lg py-3 font-bold';
+  }
+
+  function submitResult() {
+    go('ranking');
+    showToast('Ergebnis gespeichert · Pyramide aktualisiert ✓');
+  }
+
+  function showMyInfo() { showToast('Das bist du · tippe auf einen roten Rahmen, um zu fordern'); }
+  function showPlayerInfo(idx) {
+    const p = pyramids[currentCat][idx];
+    showToast(p.name + ' · Position ' + pyrLabel(idx));
+  }
+
+  function updateRankingBadges() {
+    // Badge im Tabbar: Anzahl offene Forderungen AN mich (in allen Kategorien)
+    const toMe = challenges.filter(c => c.to === MY_ID && c.status === 'open').length;
+    const badge = document.getElementById('rankingBadge');
+    if (badge) {
+      if (toMe > 0) { badge.textContent = toMe; badge.classList.remove('hidden'); }
+      else badge.classList.add('hidden');
+    }
+    // Sub-Tab Badge: offene Forderungen in currentCat mit mir involviert
+    const sb = document.getElementById('subForderungenBadge');
+    if (sb) {
+      const n = challenges.filter(c => c.cat === currentCat && c.status === 'open' && (c.from === MY_ID || c.to === MY_ID)).length;
+      if (n > 0) { sb.textContent = n; sb.classList.remove('hidden'); }
+      else sb.classList.add('hidden');
+    }
+  }
+
+  // ====== BEWIRTUNG ======
+  // Stunden-Verteilung laut Vereinsregeln
+  function hoursPerHelper(n) {
+    return [0, 10, 5, 3.5, 2.5][n] || 0;
+  }
+  function fmtHours(h) { return h.toString().replace('.', ','); }
+  function monthShort(iso) {
+    const m = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+    return m[parseInt(iso.split('-')[1],10) - 1] || '';
+  }
+  function weekdayDE(iso) {
+    const d = new Date(iso + 'T12:00');
+    return ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][d.getDay()];
+  }
+  function formatDateLong(iso) {
+    const d = new Date(iso + 'T12:00');
+    return weekdayDE(iso) + ', ' + d.getDate() + '. ' + ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'][d.getMonth()];
+  }
+
+  // Demo-Bewirtungen
+  const bewirtungen = [
+    { id:'b1', date:'2026-04-25', helpers:[7, 9],         guests:[1, 5], status:'open' }, // Marius + Peter (2 → 5h each) · 2 Gäste
+    { id:'b2', date:'2026-05-03', helpers:[11, 4, 2],     guests:[],     status:'open' }, // 3 Helfer (3 → 3,5h each)
+    { id:'b3', date:'2026-05-16', helpers:[8],            guests:[],     status:'open' }, // solo (1 → 10h)
+    { id:'b4', date:'2026-04-05', helpers:[6, 1, 10, 3],  guests:[2, 3], status:'done' }  // abgeschlossen — 4 Helfer (2,5h each)
+  ];
+
+  // ===== Demo-Hobby-Trainings (dienstags, 19:00–20:30, max. 2 Trainer) =====
+  const TRAINING_HOURS = 1.5;
+  const trainings = [
+    { id:'tr1', date:'2026-04-28', trainers:[],     status:'open' },   // frei
+    { id:'tr2', date:'2026-05-05', trainers:[11],   status:'open' },   // 1/2
+    { id:'tr3', date:'2026-05-12', trainers:[1, 8], status:'open' },   // voll
+    { id:'tr4', date:'2026-05-19', trainers:[],     status:'open' },
+    { id:'tr5', date:'2026-05-26', trainers:[],     status:'open' },
+    { id:'tr0', date:'2026-04-14', trainers:[7, 11], status:'done' }   // vergangen, abgeschlossen
+  ];
+
+  // Hilfs-Lookup: auch Spieler aus pyramids (nicht nur members)
+  function lookupPerson(id) {
+    const m = members.find(x => x.id === id);
+    if (m) return m;
+    for (const cat of ['herren','damen','jugend']) {
+      const p = pyramids[cat].find(x => x.id === id);
+      if (p) return p;
+    }
+    return { name: 'Unbekannt', avatar: '?' };
+  }
+
+  // ===== Neue Bewirtung: Helfer-Slots =====
+  let bewHelperIds = []; // ohne den User selbst
+  function renderBewHelperSlots() {
+    const host = document.getElementById('bewHelperSlots');
+    if (!host) return;
+    // Verfügbare Personen = members, exklusiv Marius und bereits gewählten
+    const chosen = new Set([MY_ID, ...bewHelperIds]);
+    const available = members.filter(m => !chosen.has(m.id));
+
+    host.innerHTML = bewHelperIds.map((id, idx) => {
+      const p = lookupPerson(id);
+      return `
+        <div class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center text-[11px] font-black text-red-800">${p.avatar}</div>
+          <div class="flex-1">
+            <div class="text-sm font-bold text-slate-900">${p.name}</div>
+            <div class="text-[11px] text-slate-500">${p.team || '–'}</div>
+          </div>
+          <button onclick="removeBewHelper(${idx})" class="text-slate-400 hover:text-red-600 text-xl leading-none">×</button>
+        </div>
+      `;
+    }).join('');
+
+    // Button deaktivieren bei 3 Helfer (= 4 total)
+    const addBtn = document.getElementById('bewAddBtn');
+    if (addBtn) {
+      if (bewHelperIds.length >= 3) {
+        addBtn.disabled = true;
+        addBtn.textContent = 'Maximal 4 Personen insgesamt';
+        addBtn.className = 'mt-2 w-full bg-slate-100 border border-dashed border-slate-300 text-slate-400 rounded-lg py-2 text-sm font-semibold cursor-not-allowed';
+      } else {
+        addBtn.disabled = false;
+        addBtn.textContent = '+ Helfer hinzufügen';
+        addBtn.className = 'mt-2 w-full bg-white border border-dashed border-slate-300 text-slate-600 rounded-lg py-2 text-sm font-semibold hover:border-red-300 hover:text-red-700';
+      }
+    }
+    renderBewHoursPreview();
+  }
+  function addBewHelper() {
+    // Picker per prompt (im echten Build: Autocomplete-Modal)
+    const chosen = new Set([MY_ID, ...bewHelperIds]);
+    const available = members.filter(m => !chosen.has(m.id));
+    if (available.length === 0) return;
+    // Nimm einfach den ersten verfügbaren als Demo
+    const pick = available[0];
+    bewHelperIds.push(pick.id);
+    renderBewHelperSlots();
+    showToast(pick.name + ' hinzugefügt');
+  }
+  function removeBewHelper(idx) {
+    bewHelperIds.splice(idx, 1);
+    renderBewHelperSlots();
+  }
+  function renderBewHoursPreview() {
+    const total = bewHelperIds.length + 1; // inkl. User
+    const each = hoursPerHelper(total);
+    document.getElementById('bewHoursNum').textContent = fmtHours(each);
+    document.getElementById('bewHoursSplit').textContent = total + (total === 1 ? ' Person' : ' Personen');
+    // Markiere die aktive Zeile
+    document.querySelectorAll('[data-bew-key]').forEach(el => {
+      const k = parseInt(el.getAttribute('data-bew-key'), 10);
+      if (k === total) {
+        el.className = 'rounded-lg py-2 px-1 bg-red-600 text-white';
+      } else {
+        el.className = 'rounded-lg py-2 px-1 bg-slate-100 text-slate-700';
+      }
+    });
+  }
+  // Arbeitseinsatz: Anmeldung mit Kommentar zusammen absenden
+  function submitArbeitSignup() {
+    const ta = document.getElementById('arbeitCommentInput');
+    const comment = (ta && ta.value ? ta.value.trim() : '');
+    if (ta) ta.value = '';
+    if (comment) {
+      showToast('Angemeldet ✓ · Kommentar „' + (comment.length > 24 ? comment.slice(0,24) + '…' : comment) + '" gespeichert');
+    } else {
+      showToast('Angemeldet ✓');
+    }
+  }
+
+  function submitBewirtung() {
+    const date = document.getElementById('bewDate').value || '2026-05-10';
+    const newId = 'b' + (bewirtungen.length + 1);
+    bewirtungen.push({
+      id: newId, date,
+      helpers: [MY_ID, ...bewHelperIds],
+      guests: [],
+      status: 'open'
+    });
+    bewHelperIds = [];
+    renderBewirtungList();
+    go('events');
+    const n = 1 + bewirtungen[bewirtungen.length - 1].helpers.length - 1;
+    showToast('Bewirtung für ' + formatDateLong(date) + ' eingetragen ✓');
+  }
+
+  // ===== Bewirtung-Liste im Events-Screen =====
+  // Wird direkt in #eventsContainer als flache Liste eingefügt (mit data-event-type + data-event-date)
+  function renderBewirtungList() {
+    const container = document.getElementById('eventsContainer');
+    if (!container) return;
+    // Bestehende Bewirtung-Karten entfernen
+    container.querySelectorAll('[data-event-type="bewirtung"]').forEach(el => el.remove());
+
+    const role = document.body.getAttribute('data-role') || 'member';
+    const today = new Date(); today.setHours(0,0,0,0);
+    let list = [...bewirtungen];
+    if (role !== 'admin') {
+      list = list.filter(b => {
+        const d = new Date(b.date + 'T00:00');
+        return d >= today && b.status !== 'done';
+      });
+    }
+    const sorted = list.sort((a,b) => a.date.localeCompare(b.date));
+
+    sorted.forEach(b => {
+      const n = b.helpers.length;
+      const each = hoursPerHelper(n);
+      const d = new Date(b.date + 'T12:00');
+      const day = String(d.getDate()).padStart(2,'0');
+      const mon = monthShort(b.date);
+      const wd = ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];
+      const helperAvatars = b.helpers.slice(0,4).map(id => {
+        const p = lookupPerson(id);
+        const mine = id === MY_ID;
+        return `<div class="w-7 h-7 rounded-full ${mine ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'} border-2 border-white flex items-center justify-center text-[10px] font-black">${p.avatar}</div>`;
+      }).join('');
+
+      const iAmHelper    = b.helpers.includes(MY_ID);
+      const iAmOrganizer = b.helpers.length > 0 && b.helpers[0] === MY_ID;
+      const iAmGuest     = (b.guests || []).includes(MY_ID);
+      // Inline-Badge / -Button statt Status "Offen"
+      let inlineCta = '';
+      if (b.status === 'done') {
+        inlineCta = '<span class="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs font-semibold">✓ Abgeschlossen</span>';
+      } else if (iAmOrganizer) {
+        inlineCta = '<span class="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs font-semibold">Organisator ✓</span>';
+      } else if (iAmHelper) {
+        inlineCta = '<span class="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs font-semibold">Helfer ✓</span>';
+      } else if (iAmGuest) {
+        inlineCta = `<button onclick="event.stopPropagation(); toggleBewGuestById('${b.id}')" class="bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-1 text-xs font-bold">Gast ✓</button>`;
+      } else {
+        inlineCta = `<button onclick="event.stopPropagation(); toggleBewGuestById('${b.id}')" class="primary rounded-lg px-3 py-1 text-xs font-bold">Anmelden</button>`;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-xl p-4 shadow-sm border border-amber-100 cursor-pointer ev-item' + (b.status === 'done' ? ' opacity-75' : '');
+      card.setAttribute('data-event-type', 'bewirtung');
+      card.setAttribute('data-event-date', b.date);
+      card.setAttribute('onclick', `openBewirtung('${b.id}')`);
+      card.innerHTML = `
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0" style="background:#fef3c7;color:#92400e;">
+            <div class="text-[10px] font-bold uppercase">${mon}</div>
+            <div class="text-lg font-black leading-none">${day}</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#fef3c7;color:#92400e;">Bewirtung</div>
+            <div class="font-bold text-slate-900 mt-1">${wd}, ${day}. ${mon}</div>
+            <div class="text-xs text-slate-500 mt-1">${n === 1 ? '1 Person im Team' : n + ' Personen im Team'}${b.guests && b.guests.length ? ' · ' + b.guests.length + ' ' + (b.guests.length === 1 ? 'Gast' : 'Gäste') : ''}</div>
+            <div class="flex items-center justify-between gap-2 mt-2">
+              <div class="flex -space-x-1.5">${helperAvatars}</div>
+              ${inlineCta}
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+    sortEventsContainer();
+  }
+
+  // ===== Bewirtung-Detail =====
+  let currentBew = null;
+  function openBewirtung(id) {
+    const b = bewirtungen.find(x => x.id === id);
+    if (!b) return;
+    currentBew = b;
+    const n = b.helpers.length;
+    const each = hoursPerHelper(n);
+    document.getElementById('bewDetailDate').textContent = formatDateLong(b.date);
+    document.getElementById('bewDetailHoursInfo').textContent =
+      '10 h insgesamt · geteilt auf ' + n + ' Helfer → ' + fmtHours(each) + ' h pro Person';
+
+    const statusPill = document.getElementById('bewDetailStatusPill');
+    if (b.status === 'done') {
+      statusPill.textContent = 'Abgeschlossen';
+      statusPill.className = 'text-[10px] uppercase tracking-wider bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-bold';
+    } else {
+      statusPill.textContent = 'Offen';
+      statusPill.className = 'text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold';
+    }
+
+    // Helfer-Liste (erste Person = Organisator)
+    const host = document.getElementById('bewDetailHelpers');
+    const isAdminView = document.body.getAttribute('data-role') === 'admin';
+    host.innerHTML = b.helpers.map((id, idx) => {
+      const p = lookupPerson(id);
+      const mine = id === MY_ID;
+      const isOrga = idx === 0;
+      const roleBadge = isOrga
+        ? '<span class="text-[9px] uppercase tracking-wider bg-red-100 text-red-800 px-1.5 py-0.5 rounded-full font-bold">Organisator</span>'
+        : '<span class="text-[9px] uppercase tracking-wider bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full font-bold">Helfer</span>';
+      const hoursBadge = isAdminView
+        ? `<span class="text-xs font-black ${b.status === 'done' ? 'text-green-700' : 'brand-text'}">+${fmtHours(each)} h</span>`
+        : '';
+      return `
+        <div class="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2">
+          <div class="w-9 h-9 rounded-full ${mine ? 'brand-bg text-white' : 'bg-gradient-to-br from-red-100 to-red-200 text-red-800'} flex items-center justify-center text-[11px] font-black">${p.avatar}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold text-slate-900 truncate">${p.name}${mine ? ' (du)' : ''}</div>
+            <div class="flex items-center gap-1.5 mt-0.5">${roleBadge}<span class="text-[11px] text-slate-500">${p.team || '–'}</span></div>
+          </div>
+          ${hoursBadge}
+        </div>
+      `;
+    }).join('');
+
+    // Team-Info (Mitglieder) / Stunden-Info (Admin) im Hero-Banner
+    const teamInfo = document.getElementById('bewDetailTeamInfo');
+    if (teamInfo) teamInfo.textContent = (n === 1 ? '1 Person im Team' : n + ' Personen im Team');
+
+    // Gäste-Liste (nur Anzeige)
+    if (!b.guests) b.guests = [];
+    const guestHost = document.getElementById('bewDetailGuests');
+    const guestCount = document.getElementById('bewDetailGuestCount');
+    guestCount.textContent = b.guests.length + (b.guests.length === 1 ? ' Gast' : ' Gäste');
+    if (b.guests.length === 0) {
+      guestHost.innerHTML = '<div class="text-xs text-slate-500 italic">Noch keine Gäste angemeldet.</div>';
+    } else {
+      guestHost.innerHTML = b.guests.map(gid => {
+        const p = lookupPerson(gid);
+        const mine = gid === MY_ID;
+        return `
+          <div class="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+            <div class="w-8 h-8 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-[10px] font-black">${p.avatar}</div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-slate-900">${p.name}${mine ? ' (du)' : ''}</div>
+              <div class="text-[11px] text-slate-500">kommt als Gast</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Admin-Button je nach Status
+    const btn = document.getElementById('bewDetailCompleteBtn');
+    const adminText = document.getElementById('bewDetailAdminText');
+    if (b.status === 'done') {
+      btn.disabled = true;
+      btn.className = 'w-full bg-slate-100 border border-slate-200 text-slate-400 rounded-xl py-3 font-semibold cursor-not-allowed';
+      btn.textContent = 'Stunden bereits gutgeschrieben ✓';
+      adminText.textContent = 'Dieser Bewirtungsdienst wurde bereits abgeschlossen. Alle Helfer haben ihre Stunden erhalten.';
+    } else {
+      btn.disabled = false;
+      btn.className = 'w-full primary rounded-xl py-3 font-semibold';
+      btn.textContent = 'Abschließen & Stunden gutschreiben';
+      adminText.textContent = 'Nach dem Dienst hier abschließen. Die Stunden werden automatisch auf alle Helfer übertragen.';
+    }
+
+    go('bewirtung-detail');
+  }
+
+  function toggleBewGuest() {
+    if (!currentBew || currentBew.status === 'done') return;
+    if (currentBew.helpers.includes(MY_ID)) return;
+    if (!currentBew.guests) currentBew.guests = [];
+    const idx = currentBew.guests.indexOf(MY_ID);
+    if (idx >= 0) {
+      currentBew.guests.splice(idx, 1);
+      showToast('Gast-Anmeldung zurückgezogen');
+    } else {
+      currentBew.guests.push(MY_ID);
+      showToast('Als Gast angemeldet ✓');
+    }
+    openBewirtung(currentBew.id);
+  }
+
+  // Direkt-Anmeldung aus der Terminliste (ohne Detail-Öffnung)
+  function toggleBewGuestById(id) {
+    const b = bewirtungen.find(x => x.id === id);
+    if (!b || b.status === 'done') return;
+    if (b.helpers.includes(MY_ID)) return;
+    if (!b.guests) b.guests = [];
+    const idx = b.guests.indexOf(MY_ID);
+    if (idx >= 0) {
+      b.guests.splice(idx, 1);
+      showToast('Gast-Anmeldung zurückgezogen');
+    } else {
+      b.guests.push(MY_ID);
+      showToast('Als Gast angemeldet ✓');
+    }
+    renderBewirtungList();
+  }
+
+  function completeBewirtung() {
+    if (!currentBew || currentBew.status === 'done') return;
+    currentBew.status = 'done';
+    const n = currentBew.helpers.length;
+    const each = hoursPerHelper(n);
+    // Stunden-Übertrag auf bekannte members
+    currentBew.helpers.forEach(id => {
+      const m = members.find(x => x.id === id);
+      if (m) m.hours = Math.round((m.hours + each) * 10) / 10;
+    });
+    renderBewirtungList();
+    renderMemberList();
+    renderAdminHoursList();
+    openBewirtung(currentBew.id); // Detail mit neuem Status neu rendern
+    showToast(n + ' Helfer je ' + fmtHours(each) + ' h gutgeschrieben ✓');
+  }
+
+  // ===== Hobby-Training: Liste rendern =====
+  // Cards werden direkt in #eventsContainer eingefügt (ev-item + data-event-type + data-event-date)
+  function renderTrainingList() {
+    const container = document.getElementById('eventsContainer');
+    if (!container) return;
+    container.querySelectorAll('[data-event-type="training"]').forEach(el => el.remove());
+
+    const isAdmin = document.body.getAttribute('data-role') === 'admin';
+    const today = new Date(); today.setHours(0,0,0,0);
+    const upcoming = trainings.filter(t => t.status === 'open').sort((a,b) => a.date.localeCompare(b.date));
+    const past     = trainings.filter(t => t.status === 'done').sort((a,b) => b.date.localeCompare(a.date));
+    // Mitglieder sehen nur zukünftige; Admin sieht zusätzlich vergangene (offen zum Abschluss + abgeschlossene)
+    const list = isAdmin ? [...upcoming, ...past] : upcoming;
+
+    list.forEach(t => {
+      const d = new Date(t.date + 'T00:00:00');
+      const isPast = d < today;
+      const monShort = d.toLocaleDateString('de-DE', { month: 'short' });
+      const dayNum   = String(d.getDate()).padStart(2, '0');
+      const count = t.trainers.length;
+      const iAmIn = t.trainers.includes(MY_ID);
+      const full  = count >= 2;
+      const avatars = t.trainers.map(id => {
+        const p = lookupPerson(id);
+        const mine = id === MY_ID;
+        return `<div class="w-7 h-7 rounded-full ${mine ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'} flex items-center justify-center text-[10px] font-black border-2 border-white">${p.avatar}</div>`;
+      }).join('');
+      const emptySlots = [...Array(Math.max(0, 2 - count))].map(() =>
+        `<div class="w-7 h-7 rounded-full bg-white border-2 border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400">?</div>`
+      ).join('');
+      // Kompakter Inline-Button (in der Avatar-Zeile, rechts)
+      // Rot = 2 fehlen, Gelb = 1 fehlt, Grün = vollständig
+      let inlineBtn = '';
+      if (t.status === 'done') {
+        inlineBtn = `<span class="bg-slate-200 text-slate-700 rounded-full px-2 py-0.5 text-xs font-semibold">Abgeschlossen</span>`;
+      } else if (isPast && isAdmin) {
+        inlineBtn = `<button onclick="completeTraining('${t.id}')" class="bg-slate-800 hover:bg-slate-900 text-white rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap">Abschließen · ${TRAINING_HOURS} h</button>`;
+      } else if (isPast) {
+        inlineBtn = `<span class="bg-slate-100 text-slate-500 rounded-full px-2 py-0.5 text-xs font-semibold">Vergangen</span>`;
+      } else if (iAmIn) {
+        inlineBtn = `<button onclick="toggleTrainerSignup('${t.id}')" class="bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap">✓ Angemeldet</button>`;
+      } else if (full) {
+        inlineBtn = '';
+      } else if (count === 0) {
+        inlineBtn = `<button onclick="toggleTrainerSignup('${t.id}')" class="primary rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap hover:opacity-90">Als Trainer anmelden</button>`;
+      } else {
+        inlineBtn = `<button onclick="toggleTrainerSignup('${t.id}')" class="bg-amber-500 hover:bg-amber-600 text-white rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap">Als Trainer anmelden</button>`;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-xl p-3 shadow-sm border border-slate-100 ev-item' + (t.status === 'done' ? ' opacity-80' : '');
+      card.setAttribute('data-event-type', 'training');
+      card.setAttribute('data-event-date', t.date);
+      card.innerHTML = `
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-lg flex flex-col items-center justify-center flex-shrink-0" style="background:#dbeafe;color:#1e3a8a;">
+            <div class="text-[10px] font-bold uppercase">${monShort}</div>
+            <div class="text-lg font-black leading-none">${dayNum}</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="inline-block text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-bold" style="background:#dbeafe;color:#1e3a8a;">Hobby-Training</span>
+            <div class="text-xs text-slate-500 mt-1">19:00 – 20:30</div>
+            <div class="flex items-center justify-between gap-2 mt-2">
+              <div class="flex -space-x-2">${avatars}${t.status !== 'done' ? emptySlots : ''}</div>
+              ${inlineBtn}
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+    sortEventsContainer();
+  }
+
+  // ===== An-/Abmelden als Trainer =====
+  function toggleTrainerSignup(tid) {
+    const t = trainings.find(x => x.id === tid);
+    if (!t || t.status !== 'open') return;
+    const idx = t.trainers.indexOf(MY_ID);
+    if (idx >= 0) {
+      t.trainers.splice(idx, 1);
+      showToast('Als Trainer abgemeldet');
+    } else {
+      if (t.trainers.length >= 2) { showToast('Bereits 2 Trainer eingetragen'); return; }
+      t.trainers.push(MY_ID);
+      showToast('Als Trainer angemeldet ✓');
+    }
+    renderTrainingList();
+  }
+
+  // ===== Admin: Training abschließen → 1,5 h pro Trainer gutschreiben =====
+  function completeTraining(tid) {
+    const t = trainings.find(x => x.id === tid);
+    if (!t || t.status === 'done') return;
+    t.status = 'done';
+    t.trainers.forEach(id => {
+      const m = members.find(x => x.id === id);
+      if (m) m.hours = Math.round((m.hours + TRAINING_HOURS) * 10) / 10;
+    });
+    renderTrainingList();
+    renderMemberList();
+    renderAdminHoursList();
+    showToast(t.trainers.length + ' Trainer je ' + TRAINING_HOURS + ' h gutgeschrieben ✓');
+  }
+
+  // ===== Filter-Chips =====
+  function sortEventsContainer() {
+    const container = document.getElementById('eventsContainer');
+    if (!container) return;
+    const items = Array.from(container.querySelectorAll(':scope > .ev-item'))
+      .filter(el => el.getAttribute('data-event-date'));
+    items.sort((a,b) => a.getAttribute('data-event-date').localeCompare(b.getAttribute('data-event-date')));
+    items.forEach(el => container.appendChild(el));
+  }
+
+  function filterEvents(type, btn) {
+    document.querySelectorAll('.ev-chip').forEach(el => {
+      el.className = 'ev-chip px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600';
+    });
+    btn.className = 'ev-chip px-3 py-1.5 rounded-full brand-bg text-white text-xs font-semibold';
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    // Karten filtern (Typ) — bei "Alle" zusätzlich nur zukünftige
+    document.querySelectorAll('.ev-item').forEach(el => {
+      const t = el.getAttribute('data-event-type');
+      let show = (type === 'alle') || (t === type);
+      if (show && type === 'alle') {
+        const ds = el.getAttribute('data-event-date');
+        if (ds) {
+          const d = new Date(ds + 'T00:00:00');
+          if (d < today) show = false;
+        }
+      }
+      el.style.display = show ? '' : 'none';
+    });
+    // Sektions-Labels immer zeigen
+    document.querySelectorAll('.ev-label').forEach(el => { el.style.display = ''; });
+
+    // Container chronologisch sortieren, damit jeder Filter nach Datum sortiert ist
+    sortEventsContainer();
+  }
+
+  // ====== INIT ======
+  setRole('member');
+  renderMemberList();
+  renderTeamList();
+  renderAdminHoursList();
+  renderCourtGrid();
+  renderPyramid();
+  renderActiveChallenges();
+  renderResults();
+  renderAdminRankingList();
+  renderAdminChallengesList();
+  updateRankingBadges();
+  renderBewHelperSlots();
+  renderBewirtungList();
+  renderTrainingList();
+  // Initiale Sortierung der Events nach Datum (Default-Filter "Alle")
+  (function initEventFilter(){
+    const today = new Date(); today.setHours(0,0,0,0);
+    document.querySelectorAll('.ev-item').forEach(el => {
+      const ds = el.getAttribute('data-event-date');
+      if (ds) {
+        const d = new Date(ds + 'T00:00:00');
+        if (d < today) el.style.display = 'none';
+      }
+    });
+    sortEventsContainer();
+  })();
+
+  // Re-Render beim Rollenwechsel (Stunden-Badge in Mitgliederliste ein/aus)
+  ['roleMember','roleAdmin'].forEach(id => {
+    document.getElementById(id).addEventListener('click', () => {
+      renderMemberList();
+      renderAdminHoursList();
+      renderTeamRoster();
+      renderAdminRankingList();
+      renderAdminChallengesList();
+      renderBewirtungList();
+      renderTrainingList();
+      // Aktiven Filter nach Re-Render erneut anwenden
+      const activeChip = document.querySelector('.ev-chip.brand-bg');
+      if (activeChip) filterEvents(activeChip.textContent.trim() === 'Alle' ? 'alle' :
+        activeChip.textContent.trim() === 'Hobby-Training' ? 'training' :
+        activeChip.textContent.trim() === 'Arbeitseinsatz' ? 'arbeit' :
+        activeChip.textContent.trim() === 'Event' ? 'event' : 'bewirtung', activeChip);
+    });
+  });
+</script>
+</body>
+</html>
